@@ -216,6 +216,45 @@ export async function registerWithPhone(
   return { user, docId };
 }
 
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+    },
+    operationType,
+    path,
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  return errInfo;
+}
+
 // Save/Sync User Data to Firestore
 export async function saveUserDataToFirestore(
   docId: string,
@@ -230,19 +269,24 @@ export async function saveUserDataToFirestore(
   }
 ) {
   if (!docId) return;
-  const userDocRef = doc(db, 'userPlanners', docId);
-  const plannerData: Partial<UserPlannerData> = {
-    userId: auth.currentUser?.uid || docId,
-    phoneNumber: formatPhoneNumber(phoneNumber),
-    userProfile: data.userProfile,
-    items: data.items,
-    yearlyItems: data.yearlyItems || [],
-    longTermPlanner: data.longTermPlanner,
-    colorMap: data.colorMap,
-    dailyEvents: data.dailyEvents,
-    updatedAt: new Date().toISOString(),
-  };
-  await setDoc(userDocRef, plannerData, { merge: true });
+  const path = `userPlanners/${docId}`;
+  try {
+    const userDocRef = doc(db, 'userPlanners', docId);
+    const plannerData: Partial<UserPlannerData> = {
+      userId: auth.currentUser?.uid || docId,
+      phoneNumber: formatPhoneNumber(phoneNumber),
+      userProfile: data.userProfile,
+      items: data.items,
+      yearlyItems: data.yearlyItems || [],
+      longTermPlanner: data.longTermPlanner,
+      colorMap: data.colorMap,
+      dailyEvents: data.dailyEvents,
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(userDocRef, plannerData, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
 }
 
 // Subscribe to real-time updates for logged-in user
@@ -251,19 +295,25 @@ export function subscribeToUserPlanner(
   onData: (data: UserPlannerData) => void
 ) {
   if (!docId) return () => {};
-  const userDocRef = doc(db, 'userPlanners', docId);
-  return onSnapshot(
-    userDocRef,
-    (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as UserPlannerData;
-        onData(data);
+  const path = `userPlanners/${docId}`;
+  try {
+    const userDocRef = doc(db, 'userPlanners', docId);
+    return onSnapshot(
+      userDocRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as UserPlannerData;
+          onData(data);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, path);
       }
-    },
-    (error) => {
-      console.error('Firestore subscription error:', error);
-    }
-  );
+    );
+  } catch (err) {
+    console.warn('Failed to subscribe to user planner:', err);
+    return () => {};
+  }
 }
 
 // Logout
