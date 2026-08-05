@@ -1,0 +1,6 @@
+{
+  "name": "고급 주간 라이프 플래너",
+  "description": "2주 단위 시간표, 한글 표 스타일 셀 합치기/크기 조절, 계획 대 실제 기록, 자동 색상 맞춤 및 반복 일정을 지원하는 럭셔리 라이프 플래너",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

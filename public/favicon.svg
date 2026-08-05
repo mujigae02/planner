@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- White circular background with subtle border for dark & light browser tabs -->
+  <circle cx="32" cy="32" r="30" fill="#FFFFFF" stroke="#E5E1DA" stroke-width="2" />
+  <circle cx="32" cy="32" r="23" fill="none" stroke="#2D2926" stroke-width="1.5" opacity="0.15" />
+  
+  <!-- Hour tick marks -->
+  <line x1="32" y1="13" x2="32" y2="17" stroke="#2D2926" stroke-width="2.5" stroke-linecap="round" />
+  <line x1="51" y1="32" x2="47" y2="32" stroke="#2D2926" stroke-width="2.5" stroke-linecap="round" />
+  <line x1="32" y1="51" x2="32" y2="47" stroke="#2D2926" stroke-width="2.5" stroke-linecap="round" />
+  <line x1="13" y1="32" x2="17" y2="32" stroke="#2D2926" stroke-width="2.5" stroke-linecap="round" />
+  
+  <!-- Clock Hands -->
+  <line x1="32" y1="32" x2="32" y2="19" stroke="#2D2926" stroke-width="3.5" stroke-linecap="round" />
+  <line x1="32" y1="32" x2="43" y2="32" stroke="#0F6856" stroke-width="3" stroke-linecap="round" />
+  
+  <!-- Center Pin -->
+  <circle cx="32" cy="32" r="3.5" fill="#2D2926" />
+</svg>

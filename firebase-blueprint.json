@@ -1,0 +1,44 @@
+{
+  "schema": {
+    "userPlanners": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the authenticated user"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The registered phone number of the user"
+        },
+        "userProfile": {
+          "type": "object",
+          "description": "User profile with name and motto"
+        },
+        "items": {
+          "type": "array",
+          "description": "List of schedule items"
+        },
+        "colorMap": {
+          "type": "object",
+          "description": "Custom color mapping for keywords"
+        },
+        "dailyEvents": {
+          "type": "object",
+          "description": "Special events mapping by date"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last modification"
+        }
+      },
+      "required": ["userId", "phoneNumber"]
+    }
+  },
+  "securityRules": {
+    "userPlanners": {
+      "read": "true",
+      "write": "true"
+    }
+  }
+}

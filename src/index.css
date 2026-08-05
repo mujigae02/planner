@@ -1,0 +1,155 @@
+@import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@300;400;600;700&display=swap');
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'GangwonEduModu';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2201-2@1.0/GangwonEduModuOTFBold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'GangwonEduModu';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2201-2@1.0/GangwonEduModuOTFLight.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'GyeonggiBatang';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/GyeonggiBatang.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'GyeonggiBatang';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/GyeonggiBatangB.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'SangjuDajeongdagam';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2112@1.0/SANGJUDajungdagam.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Longdari';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2201-2@1.0/GangwonEduPower.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+:root {
+  --bg-ivory: #F8F7F4;
+  --border-soft: #E5E1DA;
+  --text-main: #2D2926;
+  --text-muted: #8C857E;
+  --accent-lavender: #F3F0FF;
+  --accent-mint: #F0FAF7;
+  --accent-peach: #FFF8F3;
+  --accent-sky: #F0F7FF;
+}
+
+@layer base {
+  body {
+    font-family: 'Helvetica Neue', 'Arial', '함초롬고딕', 'Hamchorom Gothic', 'Noto Sans KR', sans-serif;
+    background-color: var(--bg-ivory);
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, .font-serif-kr {
+    font-family: 'Georgia', '함초롬명조', 'Hamchorom Myungjo', 'Gowun Batang', 'Noto Serif KR', serif;
+  }
+
+  .font-hamchorom {
+    font-family: '함초롬고딕', 'Hamchorom Gothic', 'HCR Dotum', 'Noto Sans KR', sans-serif;
+  }
+
+  .font-hamchorom-batang, .font-batang {
+    font-family: '함초롬바탕', 'Hamchorom Batang', 'HCR Batang', 'Gowun Batang', 'Noto Serif KR', serif;
+  }
+
+  .font-gangwon {
+    font-family: 'GangwonEduModu', '강원교육모두', 'GangwonEduPower', 'Gowun Batang', 'Noto Sans KR', sans-serif;
+  }
+
+  .font-gyeonggi {
+    font-family: 'GyeonggiBatang', '경기천년바탕', 'Gyeonggi Batang', '함초롬바탕', 'Gowun Batang', 'Noto Serif KR', serif;
+  }
+
+  .font-dajeong {
+    font-family: 'SangjuDajeongdagam', '상주다정다감', 'a다정다감', '다정다감', 'Gowun Batang', cursive, sans-serif;
+  }
+
+  .font-longdari {
+    font-family: 'Longdari', 'a롱다리', 'aLongdari', '롱다리', 'GangwonEduPower', 'Noto Sans KR', sans-serif;
+  }
+
+  .font-gothic {
+    font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', -apple-system, sans-serif;
+  }
+}
+
+/* 고급 스크롤바 디자인 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F8F7F4;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E5E1DA;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C8C3BA;
+}
+
+/* Professional Polish 카드 섀도우 & 테두리 */
+.lux-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  border-radius: 16px;
+}
+
+.lux-glass {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-soft);
+}
+
+/* 셀 합치기 / 호버 / 애니메이션 효과 */
+.timetable-cell {
+  transition: all 0.15s ease-in-out;
+}
+
+.timetable-cell:hover {
+  background-color: rgba(240, 239, 234, 0.4);
+}
+
+/* 프린트 스타일 */
+@media print {
+  body {
+    background: #FFFFFF;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-full {
+    width: 100% !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
