@@ -326,7 +326,12 @@ export function subscribeToUserPlanner(
     const userDocRef = doc(db, 'userPlanners', docId);
     return onSnapshot(
       userDocRef,
+      { includeMetadataChanges: true },
       (snapshot) => {
+        // Ignore local pending writes to avoid infinite feedback loop when current user saves data
+        if (snapshot.metadata.hasPendingWrites) {
+          return;
+        }
         if (snapshot.exists()) {
           const data = snapshot.data() as UserPlannerData;
           onData(data);

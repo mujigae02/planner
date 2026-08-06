@@ -239,13 +239,13 @@ export default function App() {
       setLastSyncedAt(new Date().toLocaleTimeString());
       setTimeout(() => {
         isRemoteUpdatingRef.current = false;
-      }, 300);
+      }, 800);
     });
 
     return () => unsubscribeDoc();
   }, [activeDocId, currentUser]);
 
-  // Sync data to Firestore on local changes (if logged in)
+  // Sync data to Firestore on local changes (if logged in) with debouncing
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
@@ -260,11 +260,22 @@ export default function App() {
       console.error('Local data saving failed', e);
     }
 
-    const activeDocId = localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
+    if (isRemoteUpdatingRef.current) {
+      return;
+    }
 
-    if (activeDocId && !isRemoteUpdatingRef.current) {
+    const currentDocId = activeDocId || localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
+
+    if (!currentDocId) {
+      setIsSyncing(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (isRemoteUpdatingRef.current) return;
+
       setIsSyncing(true);
-      saveUserDataToFirestore(activeDocId, currentUserPhone || '', {
+      saveUserDataToFirestore(currentDocId, currentUserPhone || '', {
         userProfile,
         items,
         yearlyItems,
@@ -278,8 +289,10 @@ export default function App() {
         console.error('Firestore sync error:', err);
         setIsSyncing(false);
       });
-    }
-  }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone]);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone, activeDocId]);
 
   const handleUpdateDailyEvent = (dateStr: string, text: string) => {
     setDailyEvents((prev) => ({

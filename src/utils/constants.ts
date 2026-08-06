@@ -2,7 +2,9 @@ import { PresetColor, CategoryItem } from '../types';
 
 export const HOURS = Array.from({ length: 19 }, (_, i) => i + 5); // 5 to 23
 export const MINUTES_15 = [0, 15, 30, 45];
+export const MINUTES_5 = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 export const TOTAL_SLOTS = 19 * 4; // 76 slots (05:00 ~ 23:45)
+export const TOTAL_SLOTS_5MIN = 19 * 12; // 228 slots (05:00 ~ 23:55)
 
 export function slotToTimeStr(slotIndex: number): string {
   const hour = Math.floor(slotIndex / 4) + 5;

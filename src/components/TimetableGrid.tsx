@@ -75,31 +75,9 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
     }
   }, [baseMonday, viewMode, currentBaseMonday]);
 
-  // 일정의 시작 15분 슬롯 인덱스 구하기 (05:00 = 0)
-  const getStartSlot = (item: ScheduleItem): number => {
-    const min = item.startMinute || 0;
-    return (item.startHour - 5) * 4 + Math.floor(min / 15);
-  };
-
-  // 특정 날짜 & 시작 슬롯의 ScheduleItem 탐색
-  const getItemForSlot = (dateStr: string, slotIndex: number): ScheduleItem | undefined => {
-    return items.find((item) => item.date === dateStr && getStartSlot(item) === slotIndex);
-  };
-
-  // 특정 슬롯이 이전 일정의 duration(15분 단위 rowSpan)으로 덮여 있는지 검사
-  const isSlotCoveredBySpan = (dateStr: string, slotIndex: number): boolean => {
-    return items.some((item) => {
-      if (item.date !== dateStr) return false;
-      const startSlot = getStartSlot(item);
-      const endSlot = startSlot + (item.duration || 4);
-      return slotIndex > startSlot && slotIndex < endSlot;
-    });
-  };
-
   // 15분 슬롯 그리드 렌더링 함수
   const renderGridForDays = (days: Date[], weekTitle?: string, isContinuous = false) => {
     const handleMouseDownSlot = (dateStr: string, slotIndex: number) => {
-      if (isSlotCoveredBySpan(dateStr, slotIndex) || getItemForSlot(dateStr, slotIndex)) return;
       setDragStart({ date: dateStr, slot: slotIndex });
       setDragCurrent(slotIndex);
     };
@@ -166,7 +144,6 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                   const today = isToday(d);
                   const dateKey = formatDateKey(d);
                   const dayOfWeek = d.getDay(); // 0(일) ~ 6(토)
-                  const isSunday = dayOfWeek === 0;
                   const isSaturday = dayOfWeek === 6;
                   const redDay = isRedDay(d);
                   const holidayName = getKoreanHolidayName(d);
@@ -252,7 +229,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
               </tr>
             </thead>
 
-            {/* Table Body (76개 15분 단위 슬롯) */}
+            {/* Table Body (76개 15분 단위 슬롯 그리드) */}
             <tbody>
               {Array.from({ length: TOTAL_SLOTS }, (_, s) => {
                 const isHourly = s % 4 === 0;
@@ -262,14 +239,14 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                 return (
                   <tr
                     key={s}
-                    className="h-3.5 hover:bg-[#FAF9F7]/30 transition-colors"
+                    className="h-[8px] hover:bg-[#FAF9F7]/30 transition-colors"
                   >
                     {/* 시간 축 표시 (정시에만 시간 표시) - sticky left-0 z-20 align-top */}
-                    <td className={`sticky left-0 z-20 bg-[#FAF9F7] text-center align-top border-r border-[#E5E1DA] select-none p-0 h-3.5 leading-none shadow-2xs ${
+                    <td className={`sticky left-0 z-20 bg-[#FAF9F7] text-center align-top border-r border-[#E5E1DA] select-none p-0 h-[8px] leading-none shadow-2xs ${
                       isHourEnd ? 'border-b border-b-[#D5D1CA]' : 'border-b border-b-[#E5E1DA]/30'
                     }`}>
                       {isHourly && (
-                        <span className="block pt-0.5 px-0.5 font-mono font-bold text-[10px] text-[#8C857E] leading-none">
+                        <span className="block pt-0 px-0.5 font-mono font-bold text-[9px] text-[#8C857E] leading-none -mt-1">
                           {String(hourNum).padStart(2, '0')}:00
                         </span>
                       )}
@@ -279,12 +256,6 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                     {days.map((d) => {
                       const dateKey = formatDateKey(d);
 
-                      if (isSlotCoveredBySpan(dateKey, s)) {
-                        return null; // 이미 이전 rowSpan 일정 영역
-                      }
-
-                      const item = getItemForSlot(dateKey, s);
-
                       // 드래그 선택 상태
                       const isSelectedInDrag =
                         dragStart &&
@@ -293,32 +264,8 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                         s >= Math.min(dragStart.slot, dragCurrent) &&
                         s <= Math.max(dragStart.slot, dragCurrent);
 
-                      if (item) {
-                        return (
-                          <td
-                            key={dateKey}
-                            rowSpan={item.duration || 4}
-                            className="p-0 border-r border-b border-[#E5E1DA] align-top timetable-cell relative z-0"
-                            style={{ verticalAlign: 'top' }}
-                          >
-                            <div
-                              onClick={() => onSelectItem(item)}
-                              className="absolute top-[1px] bottom-[1px] left-[1px] right-[2px] z-0 rounded-xs transition-all flex flex-col justify-start p-1 border border-black/10 shadow-2xs cursor-pointer hover:shadow-md overflow-hidden"
-                              style={{
-                                backgroundColor: item.color || '#F8F7F4',
-                                color: item.textColor || '#2D2926',
-                              }}
-                            >
-                              {/* 일정 제목 (고딕체 폰트 적용, 줄바꿈 및 너비 초과 시 자동 줄바꿈) */}
-                              <h4 className="font-gothic text-[11px] md:text-xs leading-snug font-medium tracking-tight break-words whitespace-pre-wrap w-full overflow-hidden">
-                                {item.title}
-                              </h4>
-                            </div>
-                          </td>
-                        );
-                      }
+                      const dayItems = items.filter((item) => item.date === dateKey);
 
-                      // 빈 15분 슬롯 (시간 간격 칸 높이 좁게 h-3.5)
                       return (
                         <td
                           key={dateKey}
@@ -326,10 +273,44 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                           onMouseEnter={() => handleMouseEnterSlot(dateKey, s)}
                           onMouseUp={handleMouseUpSlot}
                           onClick={() => !dragStart && onSelectSlotToCreate(dateKey, Math.floor(s / 4) + 5, (s % 4) * 15, 4)}
-                          className={`p-0 border-r border-[#E5E1DA] h-3.5 cursor-pointer timetable-cell transition-colors select-none ${
+                          className={`p-0 border-r border-[#E5E1DA] h-[8px] cursor-pointer timetable-cell transition-colors select-none relative ${
                             isHourEnd ? 'border-b border-b-[#D5D1CA]' : 'border-b border-b-[#E5E1DA]/30'
                           } ${isSelectedInDrag ? 'bg-[#E3F2FD] border-2 border-[#0D47A1]' : 'hover:bg-[#F8F7F4]'}`}
-                        />
+                        >
+                          {/* s === 0 (첫 15분 슬롯 행)에서 해당 요일의 모든 일정 5분 단위 오버레이 배치 */}
+                          {s === 0 && (
+                            <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none z-10 overflow-visible">
+                              {dayItems.map((item) => {
+                                const startMin = (item.startHour - 5) * 60 + (item.startMinute || 0);
+                                const durMin = Math.max(5, Math.round((item.duration || 4) * 15));
+                                const topPx = (startMin * 8) / 15;
+                                const heightPx = Math.max(6, (durMin * 8) / 15 - 1);
+
+                                return (
+                                  <div
+                                    key={item.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onSelectItem(item);
+                                    }}
+                                    className="absolute left-[1px] right-[2px] rounded-xs transition-all flex flex-col justify-start px-1 py-0 border border-black/10 shadow-2xs cursor-pointer hover:shadow-md hover:z-20 pointer-events-auto overflow-hidden"
+                                    style={{
+                                      top: `${topPx + 1}px`,
+                                      height: `${heightPx}px`,
+                                      backgroundColor: item.color || '#F8F7F4',
+                                      color: item.textColor || '#2D2926',
+                                    }}
+                                    title={`${item.title} (${String(item.startHour).padStart(2, '0')}:${String(item.startMinute || 0).padStart(2, '0')} ~ ${durMin}분)`}
+                                  >
+                                    <h4 className="font-gothic text-[9px] md:text-[10px] leading-tight font-medium tracking-tight break-words whitespace-pre-wrap w-full overflow-hidden truncate">
+                                      {item.title}
+                                    </h4>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </td>
                       );
                     })}
                   </tr>

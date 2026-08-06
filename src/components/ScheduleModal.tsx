@@ -226,23 +226,20 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   if (!isOpen) return null;
 
   const handleStartTimeWheelChange = (newH: number, newM: number) => {
-    const oldStartTotalMin = startHour * 60 + startMinute;
-    const oldEndTotalMin = endHour * 60 + endMinute;
-    const currentDurMin = Math.max(15, oldEndTotalMin - oldStartTotalMin);
-
     setStartHour(newH);
     setStartMinute(newM);
 
     const newStartTotalMin = newH * 60 + newM;
-    let newEndTotalMin = newStartTotalMin + currentDurMin;
-    if (newEndTotalMin > 24 * 60) {
-      newEndTotalMin = 24 * 60;
-    }
+    const currentEndTotalMin = endHour * 60 + endMinute;
 
-    const newEH = Math.min(24, Math.floor(newEndTotalMin / 60));
-    const newEM = newEH === 24 ? 0 : newEndTotalMin % 60;
-    setEndHour(newEH);
-    setEndMinute(newEM);
+    // 시작 시간이 끝나는 시간 이상으로 이동하는 경우에만 끝나는 시간을 시작 시간 + 5분으로 자동 조정
+    if (newStartTotalMin >= currentEndTotalMin) {
+      const newEndTotalMin = Math.min(24 * 60, newStartTotalMin + 5);
+      const newEH = Math.min(24, Math.floor(newEndTotalMin / 60));
+      const newEM = newEH === 24 ? 0 : newEndTotalMin % 60;
+      setEndHour(newEH);
+      setEndMinute(newEM);
+    }
   };
 
   const handleEndTimeWheelChange = (newH: number, newM: number) => {
@@ -250,7 +247,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     let newEndTotalMin = newH * 60 + newM;
 
     if (newEndTotalMin <= startTotalMin) {
-      newEndTotalMin = Math.min(24 * 60, startTotalMin + 15);
+      newEndTotalMin = Math.min(24 * 60, startTotalMin + 5);
     }
 
     const newEH = Math.min(24, Math.floor(newEndTotalMin / 60));
