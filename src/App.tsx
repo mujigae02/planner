@@ -214,21 +214,27 @@ export default function App() {
           cleanProfile.name = '';
         }
         setUserProfile(cleanProfile);
+        try { localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(cleanProfile)); } catch {}
       }
       if (Array.isArray(data.items)) {
         setItems(data.items);
+        try { localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(data.items)); } catch {}
       }
       if (Array.isArray(data.yearlyItems)) {
         setYearlyItems(data.yearlyItems);
+        try { localStorage.setItem(STORAGE_KEYS.YEARLY_ITEMS, JSON.stringify(data.yearlyItems)); } catch {}
       }
       if (data.longTermPlanner) {
         setLongTermPlanner(data.longTermPlanner);
+        try { localStorage.setItem(STORAGE_KEYS.LONG_TERM_PLANNER, JSON.stringify(data.longTermPlanner)); } catch {}
       }
       if (Array.isArray(data.categories)) {
         setCategories(data.categories);
+        try { localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(data.categories)); } catch {}
       }
       if (data.dailyEvents) {
         setDailyEvents(data.dailyEvents);
+        try { localStorage.setItem(STORAGE_KEYS.DAILY_EVENTS, JSON.stringify(data.dailyEvents)); } catch {}
       }
       setLastSyncedAt(new Date().toLocaleTimeString());
       setTimeout(() => {

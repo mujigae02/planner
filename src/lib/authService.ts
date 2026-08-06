@@ -89,23 +89,10 @@ export async function loginWithPhone(
   const email = formatPhoneToEmail(phone);
   const formattedPhone = formatPhoneNumber(phone);
   const phoneDocId = `phone_${digits}`;
-
-  // Check local storage users first for instant login
   const localUsers = getLocalUsers();
-  if (localUsers[digits]) {
-    const localUser = localUsers[digits];
-    if (localUser.passHash === pass) {
-      localStorage.setItem('lux_active_phone_docId', localUser.docId || phoneDocId);
-      localStorage.setItem('lux_active_phone', formattedPhone);
-      return { user: auth.currentUser, docId: localUser.docId || phoneDocId };
-    } else {
-      const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
-      customErr.code = 'auth/wrong-password';
-      throw customErr;
-    }
-  }
+  const knownDocId = localUsers[digits]?.docId || phoneDocId;
 
-  // 1. Try standard Firebase Auth with timeout
+  // 1. Try standard Firebase Auth first with timeout
   try {
     const persistence = autoLogin ? browserLocalPersistence : browserSessionPersistence;
     await withTimeout(setPersistence(auth, persistence), 1000).catch(() => {});
@@ -116,7 +103,7 @@ export async function loginWithPhone(
     localStorage.setItem('lux_active_phone', formattedPhone);
     return { user, docId: user.uid };
   } catch (err: any) {
-    console.log('Firebase auth login skipped or failed:', err?.code, err?.message);
+    console.log('Firebase auth login notice:', err?.code, err?.message);
 
     if (err?.code === 'auth/wrong-password') {
       const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
@@ -124,16 +111,30 @@ export async function loginWithPhone(
       throw customErr;
     }
 
-    // 2. Try Firestore userPlanners document fallback with timeout
+    // 2. Check local user credentials fallback
+    if (localUsers[digits]) {
+      const localUser = localUsers[digits];
+      if (localUser.passHash === pass) {
+        localStorage.setItem('lux_active_phone_docId', localUser.docId || phoneDocId);
+        localStorage.setItem('lux_active_phone', formattedPhone);
+        return { user: auth.currentUser, docId: localUser.docId || phoneDocId };
+      } else {
+        const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
+        customErr.code = 'auth/wrong-password';
+        throw customErr;
+      }
+    }
+
+    // 3. Try Firestore userPlanners document fallback
     try {
-      const docSnap = await withTimeout(getDoc(doc(db, 'userPlanners', phoneDocId)), 2500);
+      const docSnap = await withTimeout(getDoc(doc(db, 'userPlanners', knownDocId)), 2500);
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data && (data.passHash === pass || !data.passHash)) {
-          saveLocalUser(digits, { phone: formattedPhone, passHash: pass, docId: phoneDocId });
-          localStorage.setItem('lux_active_phone_docId', phoneDocId);
+          saveLocalUser(digits, { phone: formattedPhone, passHash: pass, docId: knownDocId });
+          localStorage.setItem('lux_active_phone_docId', knownDocId);
           localStorage.setItem('lux_active_phone', formattedPhone);
-          return { user: auth.currentUser, docId: phoneDocId };
+          return { user: auth.currentUser, docId: knownDocId };
         } else {
           const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
           customErr.code = 'auth/wrong-password';
@@ -150,7 +151,6 @@ export async function loginWithPhone(
       }
     }
 
-    // Fallback: Check if local storage has registered phone with matching password
     const customErr: any = new Error('가입되지 않은 전화번호이거나 비밀번호가 올바르지 않습니다.');
     customErr.code = 'auth/user-not-found';
     throw customErr;
