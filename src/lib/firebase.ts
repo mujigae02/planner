@@ -6,7 +6,7 @@ import defaultConfig from '../../firebase-applet-config.json';
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
 
 // Fallback dummy key to prevent getAuth() from throwing "auth/invalid-api-key" error on module load if apiKey is empty
-const apiKey = env.VITE_FIREBASE_API_KEY || defaultConfig.apiKey || 'AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6';
+const apiKey = env.VITE_FIREBASE_API_KEY || defaultConfig.apiKey || 'DUMMY_FIREBASE_API_KEY';
 
 const firebaseConfig = {
   projectId: env.VITE_FIREBASE_PROJECT_ID || defaultConfig.projectId || 'dappled-loader-29v0l',
@@ -23,7 +23,7 @@ try {
   app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 } catch (err) {
   console.warn('Firebase initializeApp failed, using fallback config:', err);
-  app = getApps().length > 0 ? getApp() : initializeApp({ ...firebaseConfig, apiKey: 'AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6' });
+  app = getApps().length > 0 ? getApp() : initializeApp({ ...firebaseConfig, apiKey: 'DUMMY_FIREBASE_API_KEY' });
 }
 
 let authInstance: Auth;
@@ -49,7 +49,7 @@ export const db = dbInstance;
 
 async function testConnection() {
   try {
-    if (db && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6') {
+    if (db && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'DUMMY_FIREBASE_API_KEY') {
       await getDocFromServer(doc(db, 'test', 'connection'));
     }
   } catch (error) {
