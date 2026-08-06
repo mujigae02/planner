@@ -29,15 +29,18 @@ export const Header: React.FC<HeaderProps> = ({
   const [mottoInput, setMottoInput] = useState(userProfile.motto);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  React.useEffect(() => {
+    setNameInput(userProfile.name);
+    setMottoInput(userProfile.motto);
+  }, [userProfile]);
+
   const startDate = twoWeekDays[0];
   const endDate = twoWeekDays[twoWeekDays.length - 1];
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    if (nameInput.trim()) {
-      onUpdateProfile({ ...userProfile, name: nameInput.trim(), motto: mottoInput.trim() });
-      setIsEditingName(false);
-    }
+    onUpdateProfile({ ...userProfile, name: nameInput.trim(), motto: mottoInput.trim() });
+    setIsEditingName(false);
   };
 
   const handleAvatarClick = () => {

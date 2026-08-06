@@ -198,7 +198,11 @@ export default function App() {
         localStorage.setItem('lux_active_phone', data.phoneNumber);
       }
       if (data.userProfile) {
-        setUserProfile(data.userProfile);
+        const cleanProfile = { ...data.userProfile };
+        if (cleanProfile.name === 'OOO의' || cleanProfile.name === 'OOO' || cleanProfile.name === '김서연') {
+          cleanProfile.name = '';
+        }
+        setUserProfile(cleanProfile);
       }
       if (Array.isArray(data.items)) {
         setItems(data.items);

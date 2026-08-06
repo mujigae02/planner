@@ -213,7 +213,7 @@ export async function registerWithPhone(
     phoneNumber: formattedPhone,
     userProfile: {
       ...initialData.userProfile,
-      name: initialData.userProfile.name || '사용자',
+      name: initialData.userProfile.name ?? '',
     },
     items: initialData.items || [],
     colorMap: initialData.colorMap || {},
