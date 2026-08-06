@@ -46,8 +46,8 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEYS.PROFILE);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.name === '김서연') {
-          parsed.name = 'OOO의';
+        if (parsed.name === '김서연' || parsed.name === 'OOO의' || parsed.name === 'OOO') {
+          parsed.name = '';
         }
         if (parsed.motto) {
           parsed.motto = parsed.motto.replace(/우아하고/g, '활기차고');
@@ -560,6 +560,29 @@ export default function App() {
     }
   };
 
+  const handleManualSync = async () => {
+    const docId = activeDocId || localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
+    if (!docId) return;
+    setIsSyncing(true);
+    try {
+      await saveUserDataToFirestore(docId, currentUserPhone || '', {
+        userProfile,
+        items,
+        yearlyItems,
+        longTermPlanner,
+        colorMap,
+        dailyEvents,
+      });
+      setLastSyncedAt(new Date().toLocaleTimeString());
+      showToast('☁️ 클라우드 동기화가 즉시 완료되었습니다.');
+    } catch (e) {
+      console.error('Manual sync failed:', e);
+      showToast('❌ 클라우드 동기화에 실패했습니다.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8F7F4] font-sans-kr text-[#2D2926]">
       {/* 전화번호 로그인 & 실시간 동기화 상태 바 */}
@@ -569,6 +592,7 @@ export default function App() {
         lastSyncedAt={lastSyncedAt}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
+        onManualSync={handleManualSync}
       />
 
       <div className="py-6 px-4 md:px-8 max-w-7xl mx-auto">

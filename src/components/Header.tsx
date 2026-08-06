@@ -123,7 +123,7 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <div className="group cursor-pointer flex items-center gap-1.5" onClick={() => setIsEditingName(true)}>
                 <h1 className="text-xl md:text-2xl font-dajeong font-bold text-[#1E3A8A] tracking-wide">
-                  {userProfile.name} 라이프 플래너
+                  {userProfile.name ? `${userProfile.name}의 라이프 플래너` : '라이프 플래너'}
                 </h1>
                 <Edit3 className="w-3.5 h-3.5 text-[#8C857E] opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>

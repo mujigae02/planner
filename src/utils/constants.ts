@@ -29,7 +29,7 @@ export const PASTEL_COLORS: PresetColor[] = [
 ];
 
 export const DEFAULT_USER = {
-  name: 'OOO의',
+  name: '',
   motto: '활기차고 가치 있는 삶을 위한 주간 기록',
 };
 

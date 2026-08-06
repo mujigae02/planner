@@ -8,6 +8,7 @@ interface UserAccountBarProps {
   lastSyncedAt: string | null;
   onOpenAuthModal: () => void;
   onLogout: () => void;
+  onManualSync?: () => void;
 }
 
 export const UserAccountBar: React.FC<UserAccountBarProps> = ({
@@ -16,6 +17,7 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
   lastSyncedAt,
   onOpenAuthModal,
   onLogout,
+  onManualSync,
 }) => {
   // Format masked phone number for privacy display
   const getMaskedPhone = (phone: string) => {
@@ -35,20 +37,25 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
             <div className="flex items-center gap-2.5">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#E8F5E9] border border-[#C8E6C9] rounded-full font-semibold text-[#2E7D32]">
                 <Smartphone className="w-3.5 h-3.5 text-[#2E7D32]" />
-                <span>{getMaskedPhone(currentUserPhone)} (로그인됨)</span>
+                <span>{getMaskedPhone(currentUserPhone)}</span>
               </span>
 
               <div className="flex items-center gap-1 text-[11px] text-[#555]">
                 {isSyncing ? (
-                  <>
+                  <div className="flex items-center gap-1">
                     <RefreshCw className="w-3 h-3 text-[#2D2926] animate-spin" />
                     <span className="font-medium text-[#2D2926]">실시간 동기화 중...</span>
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <Cloud className="w-3 h-3 text-[#2E7D32]" />
-                    <span className="text-[#2E7D32] font-medium">클라우드 동기화 완료</span>
-                  </>
+                  <button
+                    type="button"
+                    onClick={onManualSync}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#A5D6A7] hover:bg-[#E8F5E9] text-[#2E7D32] font-semibold rounded-full transition-all shadow-2xs cursor-pointer active:scale-95"
+                    title="클릭 시 즉시 클라우드와 다시 동기화합니다"
+                  >
+                    <RefreshCw className="w-3 h-3 text-[#2E7D32]" />
+                    <span>동기화 완료 (다시 동기화)</span>
+                  </button>
                 )}
               </div>
             </div>
