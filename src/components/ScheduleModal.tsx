@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Trash2, Sparkles, Calendar, RefreshCw, AlertTriangle } from 'lucide-react';
 import { ScheduleItem } from '../types';
 import { PASTEL_COLORS, HOURS, MINUTES_15, DAY_NAMES } from '../utils/constants';
+import { TimeWheelPicker } from './TimeWheelPicker';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -199,39 +200,30 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     return `${hrs}시간 ${mins}분`;
   };
 
-  // 슬롯 인덱스 (0 = 05:00) -> "HH:MM" 시간 문자열
-  const slotToTimeString = (slotIndex: number): string => {
-    const totalMinutes = 5 * 60 + slotIndex * 15;
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-  };
+  const startTotalMin = startHour * 60 + startMinute;
+  const currentEndTotalMin = startTotalMin + durationSlots * 15;
+  const endHour = Math.min(24, Math.floor(currentEndTotalMin / 60));
+  const endMinute = currentEndTotalMin % 60;
 
-  const currentStartSlot = Math.max(0, Math.min(75, (startHour - 5) * 4 + Math.floor(startMinute / 15)));
-  const currentEndSlot = Math.min(76, currentStartSlot + durationSlots);
+  const handleStartTimeWheelChange = (newH: number, newM: number) => {
+    setStartHour(newH);
+    setStartMinute(newM);
 
-  const allStartSlots = Array.from({ length: 76 }, (_, i) => i);
-  const availableEndSlots = Array.from({ length: 76 - currentStartSlot }, (_, i) => currentStartSlot + 1 + i);
-
-  const handleStartSlotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newStartSlot = Number(e.target.value);
-    const newStartHour = Math.floor((5 * 60 + newStartSlot * 15) / 60);
-    const newStartMinute = (5 * 60 + newStartSlot * 15) % 60;
-
-    setStartHour(newStartHour);
-    setStartMinute(newStartMinute);
-
-    if (newStartSlot >= currentEndSlot) {
-      const newEndSlot = Math.min(76, newStartSlot + 4);
-      setDurationSlots(newEndSlot - newStartSlot);
+    const newStartTotalMin = newH * 60 + newM;
+    if (newStartTotalMin >= currentEndTotalMin) {
+      const newEndTotalMin = Math.min(24 * 60, newStartTotalMin + 60);
+      const durMin = newEndTotalMin - newStartTotalMin;
+      setDurationSlots(Math.max(1, Math.round(durMin / 15)));
     } else {
-      setDurationSlots(currentEndSlot - newStartSlot);
+      const durMin = currentEndTotalMin - newStartTotalMin;
+      setDurationSlots(Math.max(1, Math.round(durMin / 15)));
     }
   };
 
-  const handleEndSlotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newEndSlot = Number(e.target.value);
-    setDurationSlots(Math.max(1, newEndSlot - currentStartSlot));
+  const handleEndTimeWheelChange = (newH: number, newM: number) => {
+    const newEndTotalMin = newH * 60 + newM;
+    const durMin = Math.max(5, newEndTotalMin - startTotalMin);
+    setDurationSlots(Math.max(1, Math.round(durMin / 15)));
   };
 
   return (
@@ -276,7 +268,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             />
           </div>
 
-          {/* 날짜 / 시작 시간 / 종료 시간 (15분 단위) 선택 */}
+          {/* 날짜 / 시작 시간 / 종료 시간 (드럼 휠 피커) 선택 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
             <div>
               <label className="block text-xs font-medium text-[#2D2926] mb-1">날짜</label>
@@ -289,35 +281,23 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[#2D2926] mb-1">시작 시간</label>
-              <select
-                value={currentStartSlot}
-                onChange={handleStartSlotChange}
-                className="w-full px-2.5 py-2 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#20487C]/30 text-[#2D2926]"
-              >
-                {allStartSlots.map((s) => (
-                  <option key={s} value={s}>
-                    {slotToTimeString(s)}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <TimeWheelPicker
+              label="시작 시간"
+              hour={startHour}
+              minute={startMinute}
+              minHour={5}
+              maxHour={23}
+              onChange={handleStartTimeWheelChange}
+            />
 
-            <div>
-              <label className="block text-xs font-medium text-[#2D2926] mb-1">끝나는 시간</label>
-              <select
-                value={currentEndSlot}
-                onChange={handleEndSlotChange}
-                className="w-full px-2.5 py-2 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#20487C]/30 text-[#2D2926]"
-              >
-                {availableEndSlots.map((e) => (
-                  <option key={e} value={e}>
-                    {slotToTimeString(e)}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <TimeWheelPicker
+              label="끝나는 시간"
+              hour={endHour}
+              minute={endMinute}
+              minHour={startHour}
+              maxHour={24}
+              onChange={handleEndTimeWheelChange}
+            />
           </div>
 
           {/* 파스텔 색상 선택 */}
