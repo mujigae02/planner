@@ -8,8 +8,9 @@ import { YearlyCalendarView } from './components/YearlyCalendarView';
 import { LongTermPlannerView } from './components/LongTermPlannerView';
 import { UserAccountBar } from './components/UserAccountBar';
 import { AuthModal } from './components/AuthModal';
+import { WeeklyActionControls } from './components/WeeklyActionControls';
 import { ScheduleItem, UserProfile, DailyEvents, YearlyScheduleItem, LongTermPlannerData } from './types';
-import { getMonday, getTwoWeekDays, formatDateKey } from './utils/dateUtils';
+import { getMonday, getTwoWeekDays, formatDateKey, formatKoreanDateShort } from './utils/dateUtils';
 import { DEFAULT_USER, INITIAL_COLOR_MAP } from './utils/constants';
 import { generateSampleData } from './utils/sampleData';
 import {
@@ -131,6 +132,23 @@ export default function App() {
   const [modalDefaultDuration, setModalDefaultDuration] = useState<number>(4); // 4 = 1시간
 
   const [activeDocId, setActiveDocId] = useState<string>(() => localStorage.getItem('lux_active_phone_docId') || '');
+
+  // 주단위 복사 / 붙여넣기 데이터 state
+  const [copiedWeekData, setCopiedWeekData] = useState<{
+    items: Array<Omit<ScheduleItem, 'id' | 'date'> & { dayIndex: number }>;
+    dailyEvents: Record<number, string>;
+    copiedRangeStr: string;
+  } | null>(null);
+
+  // 상단 알림 메시지 토스트 state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 3500);
+  };
 
   // Auth Listener & Realtime Firestore Sync
   useEffect(() => {
@@ -295,6 +313,109 @@ export default function App() {
 
   const handleSelectCalendarDate = (selectedDate: Date) => {
     setBaseMonday(getMonday(selectedDate));
+  };
+
+  // 주단위 일괄 리셋 핸들러 (반복 일정 포함 해당 7일 일정 & 행사 소멸)
+  const handleResetWeek = (weekStartDate: Date) => {
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStartDate);
+      d.setDate(weekStartDate.getDate() + i);
+      return formatDateKey(d);
+    });
+    const weekSet = new Set(weekDays);
+
+    setItems((prev) => prev.filter((item) => !weekSet.has(item.date)));
+    setDailyEvents((prev) => {
+      const next = { ...prev };
+      weekDays.forEach((dateKey) => delete next[dateKey]);
+      return next;
+    });
+
+    const endDate = new Date(weekStartDate);
+    endDate.setDate(weekStartDate.getDate() + 6);
+    const rangeStr = `${formatKoreanDateShort(weekStartDate)} ~ ${formatKoreanDateShort(endDate)}`;
+    showToast(`🧹 ${rangeStr} 주차의 모든 일정 및 행사 메모가 리셋되었습니다.`);
+  };
+
+  // 주단위 일정 복사 핸들러 (해당 7일 일정 & 행사 기록 저장)
+  const handleCopyWeek = (weekStartDate: Date) => {
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStartDate);
+      d.setDate(weekStartDate.getDate() + i);
+      return formatDateKey(d);
+    });
+    const weekMap = new Map<string, number>();
+    weekDays.forEach((dateKey, index) => weekMap.set(dateKey, index));
+
+    const copiedItems = items
+      .filter((item) => weekMap.has(item.date))
+      .map((item) => {
+        const { id, date, ...rest } = item;
+        return {
+          ...rest,
+          dayIndex: weekMap.get(item.date)!,
+        };
+      });
+
+    const copiedDailyEvents: Record<number, string> = {};
+    weekDays.forEach((dateKey, index) => {
+      if (dailyEvents[dateKey]) {
+        copiedDailyEvents[index] = dailyEvents[dateKey];
+      }
+    });
+
+    const endDate = new Date(weekStartDate);
+    endDate.setDate(weekStartDate.getDate() + 6);
+    const rangeStr = `${formatKoreanDateShort(weekStartDate)} ~ ${formatKoreanDateShort(endDate)}`;
+
+    setCopiedWeekData({
+      items: copiedItems,
+      dailyEvents: copiedDailyEvents,
+      copiedRangeStr: rangeStr,
+    });
+
+    showToast(`📋 ${rangeStr} 주차 일정 ${copiedItems.length}개가 클립보드에 복사되었습니다.`);
+  };
+
+  // 주단위 일정 붙여넣기 핸들러 (복사된 주간 일정을 목표 7일에 일괄 추가)
+  const handlePasteWeek = (targetStartDate: Date) => {
+    if (!copiedWeekData) {
+      showToast('⚠️ 복사된 주간 일정이 없습니다. 먼저 원하는 주차를 [복사] 해주세요.');
+      return;
+    }
+
+    const targetWeekDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(targetStartDate);
+      d.setDate(targetStartDate.getDate() + i);
+      return formatDateKey(d);
+    });
+
+    // 신규 아이템 생성
+    const newItems: ScheduleItem[] = copiedWeekData.items.map((item, idx) => ({
+      ...item,
+      id: `pasted-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${idx}`,
+      date: targetWeekDays[item.dayIndex],
+    }));
+
+    setItems((prev) => [...prev, ...newItems]);
+
+    // 행사 메모 적용
+    setDailyEvents((prev) => {
+      const next = { ...prev };
+      Object.entries(copiedWeekData.dailyEvents).forEach(([dayIdxStr, text]) => {
+        const dayIdx = Number(dayIdxStr);
+        if (targetWeekDays[dayIdx]) {
+          next[targetWeekDays[dayIdx]] = text;
+        }
+      });
+      return next;
+    });
+
+    const endDate = new Date(targetStartDate);
+    endDate.setDate(targetStartDate.getDate() + 6);
+    const targetRangeStr = `${formatKoreanDateShort(targetStartDate)} ~ ${formatKoreanDateShort(endDate)}`;
+
+    showToast(`📥 ${targetRangeStr} 주차에 일정을 성공적으로 붙여넣었습니다! (${newItems.length}개)`);
   };
 
   // 5. 모달 열기 핸들러
@@ -462,6 +583,24 @@ export default function App() {
           viewMode={viewMode}
           onViewModeChange={setViewMode}
         />
+
+        {/* 주단위 리셋, 복사, 붙여넣기 일괄 편집 툴바 (주간 계획/2주 보기 모드에서 노출) */}
+        {(viewMode === 'twoWeekHorizontal' || viewMode === 'splitCalendar') && (
+          <WeeklyActionControls
+            twoWeekDays={twoWeekDays}
+            onResetWeek={handleResetWeek}
+            onCopyWeek={handleCopyWeek}
+            onPasteWeek={handlePasteWeek}
+            copiedWeekRangeStr={copiedWeekData?.copiedRangeStr || null}
+          />
+        )}
+
+        {/* 토스트 메세지 배너 */}
+        {toastMessage && (
+          <div className="fixed bottom-6 right-6 z-50 bg-[#2D2926] text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/20 text-xs font-semibold font-sans-kr flex items-center gap-2 animate-bounce">
+            <span>{toastMessage}</span>
+          </div>
+        )}
 
         {/* 뷰 모드별 주요 컨텐츠 레이아웃 */}
         {viewMode === 'longTermPlanner' ? (

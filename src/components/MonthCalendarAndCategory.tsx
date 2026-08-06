@@ -145,13 +145,13 @@ export const MonthCalendarAndCategory: React.FC<MonthCalendarAndCategoryProps> =
         <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-[#E5E1DA]">
           <div className="flex items-center gap-1.5">
             <Palette className="w-4 h-4 text-[#8C857E]" />
-            <h3 className="text-sm font-serif-kr font-medium text-[#2D2926]">
+            <h3 className="text-sm font-gothic font-semibold text-[#2D2926]">
               색상 카테고리 안내
             </h3>
           </div>
           <button
             onClick={onOpenColorManager}
-            className="px-2.5 py-1 rounded-full bg-[#FAF9F7] border border-[#E5E1DA] hover:bg-[#F0FAF7] text-[#2D2926] text-xs font-medium transition-colors flex items-center gap-1 shadow-2xs"
+            className="px-2.5 py-1 rounded-full bg-[#FAF9F7] border border-[#E5E1DA] hover:bg-[#F0FAF7] text-[#2D2926] text-xs font-gothic font-medium transition-colors flex items-center gap-1 shadow-2xs"
             title="자동 색상 규칙 관리"
           >
             <Sparkles className="w-3 h-3 text-[#C28E00]" />
@@ -159,12 +159,12 @@ export const MonthCalendarAndCategory: React.FC<MonthCalendarAndCategoryProps> =
           </button>
         </div>
 
-        <p className="text-[11px] text-[#8C857E] mb-3 leading-snug">
+        <p className="text-[11px] font-gothic text-[#8C857E] mb-3 leading-snug">
           일정 제목에 키워드가 포함되면 지정한 파스텔 색상이 자동 적용됩니다.
         </p>
 
         {/* 카테고리 태그 목록 */}
-        <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
           {Object.entries(colorMap).map(([titleKey, val]) => {
             const item = val as { color: string; textColor: string };
             return (
@@ -177,20 +177,12 @@ export const MonthCalendarAndCategory: React.FC<MonthCalendarAndCategoryProps> =
                   color: item.textColor,
                 }}
               >
-                <span className="font-serif-kr font-medium text-[11px] truncate">{titleKey}</span>
+                <span className="font-gothic font-medium text-[11px] truncate">{titleKey}</span>
                 <span className="w-2 h-2 rounded-full opacity-70" style={{ backgroundColor: item.textColor }} />
               </div>
             );
           })}
         </div>
-
-        <button
-          onClick={onOpenColorManager}
-          className="w-full mt-3 py-2 bg-[#2D2926] hover:bg-[#1A1A1A] text-white rounded-full text-xs font-medium transition-all flex items-center justify-center gap-1.5 shadow-2xs"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#FFD700]" />
-          <span>자동 색상 설정 관리</span>
-        </button>
       </div>
     </div>
   );

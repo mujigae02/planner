@@ -394,7 +394,7 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                               // 약간의 지연 후 activeCellKey 초기화 (상단 버튼 클릭 이벤트 처리 보장)
                               setTimeout(() => setActiveCellKey(null), 200);
                             }}
-                            placeholder={`${year}년 ${columns[colIdx]}...`}
+                            placeholder=""
                             rows={2}
                             className="w-full h-full min-h-[50px] max-h-[50px] p-1.5 text-xs md:text-sm font-gothic font-medium bg-transparent border border-transparent rounded-lg focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none transition-all resize-none leading-relaxed placeholder:text-[#BBB4A9] overflow-y-auto"
                             style={{

@@ -45,6 +45,40 @@ export interface UserPlannerData {
 }
 
 // Phone + Password Login
+function withTimeout<T>(promise: Promise<T>, ms: number = 2500): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('TIMEOUT')), ms)
+    ),
+  ]);
+}
+
+interface LocalUserData {
+  phone: string;
+  passHash: string;
+  docId: string;
+}
+
+function getLocalUsers(): Record<string, LocalUserData> {
+  try {
+    const raw = localStorage.getItem('lux_local_users');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalUser(digits: string, data: LocalUserData) {
+  try {
+    const users = getLocalUsers();
+    users[digits] = data;
+    localStorage.setItem('lux_local_users', JSON.stringify(users));
+  } catch (e) {
+    console.warn('Failed to save local user:', e);
+  }
+}
+
 export async function loginWithPhone(
   phone: string,
   pass: string,
@@ -53,50 +87,52 @@ export async function loginWithPhone(
   const digits = phone.replace(/[^0-9]/g, '');
   const email = formatPhoneToEmail(phone);
   const formattedPhone = formatPhoneNumber(phone);
+  const phoneDocId = `phone_${digits}`;
 
-  const persistence = autoLogin ? browserLocalPersistence : browserSessionPersistence;
-  try {
-    await setPersistence(auth, persistence);
-  } catch (e) {
-    console.warn('Set persistence warning:', e);
+  // Check local storage users first for instant login
+  const localUsers = getLocalUsers();
+  if (localUsers[digits]) {
+    const localUser = localUsers[digits];
+    if (localUser.passHash === pass) {
+      localStorage.setItem('lux_active_phone_docId', localUser.docId || phoneDocId);
+      localStorage.setItem('lux_active_phone', formattedPhone);
+      return { user: auth.currentUser, docId: localUser.docId || phoneDocId };
+    } else {
+      const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
+      customErr.code = 'auth/wrong-password';
+      throw customErr;
+    }
   }
 
-  // 1. Try standard Firebase Auth first
+  // 1. Try standard Firebase Auth with timeout
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+    const persistence = autoLogin ? browserLocalPersistence : browserSessionPersistence;
+    await withTimeout(setPersistence(auth, persistence), 1000).catch(() => {});
+    const userCredential = await withTimeout(signInWithEmailAndPassword(auth, email, pass), 2500);
     const user = userCredential.user;
+    saveLocalUser(digits, { phone: formattedPhone, passHash: pass, docId: user.uid });
     localStorage.setItem('lux_active_phone_docId', user.uid);
     localStorage.setItem('lux_active_phone', formattedPhone);
     return { user, docId: user.uid };
   } catch (err: any) {
-    console.log('signInWithEmailAndPassword error:', err?.code, err?.message);
+    console.log('Firebase auth login skipped or failed:', err?.code, err?.message);
 
-    // If explicit wrong password error on Firebase Auth account
-    if (err.code === 'auth/wrong-password') {
+    if (err?.code === 'auth/wrong-password') {
       const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
       customErr.code = 'auth/wrong-password';
       throw customErr;
     }
 
-    // 2. Try phone doc fallback in Firestore
-    const phoneDocId = `phone_${digits}`;
+    // 2. Try Firestore userPlanners document fallback with timeout
     try {
-      const docSnap = await getDoc(doc(db, 'userPlanners', phoneDocId));
+      const docSnap = await withTimeout(getDoc(doc(db, 'userPlanners', phoneDocId)), 2500);
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data && (data.passHash === pass || !data.passHash)) {
-          let user = auth.currentUser;
-          try {
-            if (!user) {
-              const anonCred = await signInAnonymously(auth);
-              user = anonCred.user;
-            }
-          } catch (e) {
-            console.warn('Anonymous auth failed on login fallback:', e);
-          }
+          saveLocalUser(digits, { phone: formattedPhone, passHash: pass, docId: phoneDocId });
           localStorage.setItem('lux_active_phone_docId', phoneDocId);
           localStorage.setItem('lux_active_phone', formattedPhone);
-          return { user, docId: phoneDocId };
+          return { user: auth.currentUser, docId: phoneDocId };
         } else {
           const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
           customErr.code = 'auth/wrong-password';
@@ -108,12 +144,13 @@ export async function loginWithPhone(
         throw customErr;
       }
     } catch (dbErr: any) {
-      if (dbErr.code === 'auth/wrong-password' || dbErr.code === 'auth/user-not-found') {
+      if (dbErr?.code === 'auth/wrong-password' || dbErr?.code === 'auth/user-not-found') {
         throw dbErr;
       }
     }
 
-    const customErr: any = new Error('전화번호 또는 비밀번호가 올바르지 않습니다.');
+    // Fallback: Check if local storage has registered phone with matching password
+    const customErr: any = new Error('가입되지 않은 전화번호이거나 비밀번호가 올바르지 않습니다.');
     customErr.code = 'auth/user-not-found';
     throw customErr;
   }
@@ -134,65 +171,42 @@ export async function registerWithPhone(
   const digits = phone.replace(/[^0-9]/g, '');
   const email = formatPhoneToEmail(phone);
   const formattedPhone = formatPhoneNumber(phone);
+  const phoneDocId = `phone_${digits}`;
 
-  const persistence = autoLogin ? browserLocalPersistence : browserSessionPersistence;
-  try {
-    await setPersistence(auth, persistence);
-  } catch (e) {
-    console.warn('Set persistence warning:', e);
+  // Check local users first
+  const localUsers = getLocalUsers();
+  if (localUsers[digits]) {
+    const customErr: any = new Error('이미 가입된 전화번호입니다. 로그인 탭으로 이동해주세요.');
+    customErr.code = 'auth/email-already-in-use';
+    throw customErr;
   }
 
   let user: User | null = null;
-  let docId: string = '';
+  let docId: string = phoneDocId;
 
+  // Try Firebase createUserWithEmailAndPassword with fast timeout
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+    const userCredential = await withTimeout(createUserWithEmailAndPassword(auth, email, pass), 2500);
     user = userCredential.user;
     docId = user.uid;
   } catch (err: any) {
-    console.log('createUserWithEmailAndPassword fallback triggered:', err?.code, err?.message);
-
-    if (err.code === 'auth/email-already-in-use') {
-      const customErr: any = new Error('이미 가입된 전화번호입니다. 로그인으로 전환해주세요.');
+    if (err?.code === 'auth/email-already-in-use') {
+      const customErr: any = new Error('이미 가입된 전화번호입니다. 로그인 탭으로 이동해주세요.');
       customErr.code = 'auth/email-already-in-use';
       throw customErr;
     }
 
-    if (err.code === 'auth/weak-password') {
+    if (err?.code === 'auth/weak-password') {
       const customErr: any = new Error('비밀번호는 6자리 이상으로 입력해주세요.');
       customErr.code = 'auth/weak-password';
       throw customErr;
     }
 
-    // Fallback: Use phone document ID in Firestore
-    docId = `phone_${digits}`;
-
-    // Check if user document already exists
-    try {
-      const existingDoc = await getDoc(doc(db, 'userPlanners', docId));
-      if (existingDoc.exists()) {
-        const customErr: any = new Error('이미 가입된 전화번호입니다. 로그인으로 전환해주세요.');
-        customErr.code = 'auth/email-already-in-use';
-        throw customErr;
-      }
-    } catch (dbErr: any) {
-      if (dbErr.code === 'auth/email-already-in-use') throw dbErr;
-      console.warn('Error checking existing doc:', dbErr);
-    }
-
-    // Try anonymous sign in if not logged in
-    try {
-      if (!auth.currentUser) {
-        const anonCred = await signInAnonymously(auth);
-        user = anonCred.user;
-      } else {
-        user = auth.currentUser;
-      }
-    } catch (anonErr) {
-      console.warn('Anonymous auth failed during registration:', anonErr);
-      user = auth.currentUser;
-    }
+    docId = phoneDocId;
   }
+
+  // Save to local storage for instant offline/fast availability
+  saveLocalUser(digits, { phone: formattedPhone, passHash: pass, docId });
 
   const plannerData: UserPlannerData = {
     userId: user?.uid || docId,
@@ -208,7 +222,10 @@ export async function registerWithPhone(
     passHash: pass,
   };
 
-  await setDoc(doc(db, 'userPlanners', docId), plannerData);
+  // Asynchronously save to Firestore without blocking UI
+  withTimeout(setDoc(doc(db, 'userPlanners', docId), plannerData), 3000).catch((e) =>
+    console.warn('Firestore setDoc background notice:', e)
+  );
 
   localStorage.setItem('lux_active_phone_docId', docId);
   localStorage.setItem('lux_active_phone', formattedPhone);

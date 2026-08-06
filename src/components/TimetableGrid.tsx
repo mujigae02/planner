@@ -181,7 +181,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                         type="text"
                         value={eventVal}
                         onChange={(e) => onUpdateDailyEvent && onUpdateDailyEvent(dateKey, e.target.value)}
-                        placeholder="행사 입력"
+                        placeholder=""
                         className="w-full text-center text-[10px] md:text-xs font-gothic font-medium py-0.5 px-1 rounded border border-transparent hover:border-[#D5D1CA] focus:border-[#4A6B82] focus:bg-white focus:outline-none bg-transparent text-[#2D2926] placeholder-[#B5B0A8] transition-all truncate"
                       />
                     </th>
