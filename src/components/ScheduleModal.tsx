@@ -313,7 +313,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
               >
                 {availableEndSlots.map((e) => (
                   <option key={e} value={e}>
-                    {slotToTimeString(e)} ({formatDurationText(e - currentStartSlot)})
+                    {slotToTimeString(e)}
                   </option>
                 ))}
               </select>
