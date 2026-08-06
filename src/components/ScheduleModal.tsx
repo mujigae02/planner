@@ -426,7 +426,9 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             {/* 기존 일정을 수정하는 중이고, 해당 일정이 반복 일정인 경우: 수정 범위 직접 선택 */}
             {initialItem && (isRecurringItem || isRecurring) && (
               <div className="pt-2.5 mt-2 border-t border-[#E5E1DA] space-y-1.5">
-                <label className="block text-[11px] font-bold text-[#2D2926]">수정 적용 범위</label>
+                <label className="block text-[11px] font-bold text-[#2D2926]">
+                  {isRecurring ? '수정 적용 범위' : '반복 해제 적용 범위'}
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   <label
                     className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
@@ -443,7 +445,9 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                       className="accent-[#2E7D32]"
                     />
                     <span>
-                      모든 반복 일정 수정
+                      {isRecurring
+                        ? `모든 반복 일정 수정`
+                        : `모든 반복 일정 반복 해제`}
                       {recurringGroupItems.length > 0 ? ` (${recurringGroupItems.length}개)` : ''}
                     </span>
                   </label>
@@ -462,7 +466,9 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                       onChange={() => setEditScope('single')}
                       className="accent-[#2E7D32]"
                     />
-                    <span>이 일정만 수정</span>
+                    <span>
+                      {isRecurring ? '이 일정만 수정' : '이 일정만 반복 해제'}
+                    </span>
                   </label>
                 </div>
               </div>
