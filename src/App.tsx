@@ -648,20 +648,28 @@ export default function App() {
         setItems((prev) => [...prev.filter((it) => it.id !== targetItem.id), ...newItems]);
         showToast(`총 ${newItems.length}개의 반복 일정으로 전환되었습니다.`);
       } else {
-        // 단일 항목 수정
+        // 단일 항목 수정 (독립적인 단일 일정으로 개별 반영)
         setItems((prev) =>
-          prev.map((it) =>
-            it.id === itemData.id
-              ? ({
-                  ...it,
-                  ...itemData,
-                  title: itemData.title!.trim(),
-                  isRecurring: recurringOptions?.isRecurring ?? it.isRecurring,
-                  recurringType: recurringOptions?.type ?? it.recurringType,
-                  recurringDays: recurringOptions?.days ?? it.recurringDays,
-                } as ScheduleItem)
-              : it
-          )
+          prev.map((it) => {
+            if (it.id === itemData.id) {
+              const updatedItem: ScheduleItem = {
+                ...it,
+                ...itemData,
+                title: itemData.title!.trim(),
+              };
+              if (!recurringOptions?.isRecurring) {
+                delete updatedItem.isRecurring;
+                delete updatedItem.recurringGroupId;
+                delete updatedItem.recurringType;
+                delete updatedItem.recurringDays;
+              } else if (scope === 'single' && it.recurringGroupId) {
+                // 단일 개별 수정 시 그룹 ID 해제하여 독자 일정으로 분리
+                delete updatedItem.recurringGroupId;
+              }
+              return updatedItem;
+            }
+            return it;
+          })
         );
         showToast('일정이 수정되었습니다.');
       }

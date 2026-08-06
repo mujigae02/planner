@@ -53,28 +53,36 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [recurringType, setRecurringType] = useState<'daily' | 'weekly'>('daily');
   const [recurringDays, setRecurringDays] = useState<number[]>([1, 3, 5]);
 
-  // 반복 일정 관련 작업 옵션 선택 모드 ('none' | 'delete' | 'edit')
-  const [confirmMode, setConfirmMode] = useState<'none' | 'delete' | 'edit'>('none');
+  // 수정 모드 시 적용 범위 ('all': 모든 반복 일정, 'single': 이 일정만)
+  const [editScope, setEditScope] = useState<'all' | 'single'>('all');
 
-  // 현재 항목이 반복 일정에 속해있는지 판단
+  // 삭제용 확인 카드 보이기 상태 ('none' | 'delete')
+  const [confirmMode, setConfirmMode] = useState<'none' | 'delete'>('none');
+
+  // 현재 항목이 반복 일정 그룹인지 또는 연관 반복 일정이 있는지 판단
+  const recurringGroupItems = useMemo(() => {
+    if (!initialItem || !allItems) return [];
+    if (initialItem.recurringGroupId) {
+      return allItems.filter((it) => it.recurringGroupId === initialItem.recurringGroupId);
+    }
+    return allItems.filter(
+      (it) =>
+        it.title.trim() === initialItem.title.trim() &&
+        it.startHour === initialItem.startHour &&
+        (it.startMinute || 0) === (initialItem.startMinute || 0) &&
+        (it.duration || 4) === (initialItem.duration || 4)
+    );
+  }, [initialItem, allItems]);
+
   const isRecurringItem = useMemo(() => {
     if (!initialItem) return false;
     if (initialItem.isRecurring || initialItem.recurringGroupId) return true;
-    if (allItems && allItems.length > 0) {
-      const matches = allItems.filter(
-        (it) =>
-          it.title.trim() === initialItem.title.trim() &&
-          it.startHour === initialItem.startHour &&
-          (it.startMinute || 0) === (initialItem.startMinute || 0) &&
-          (it.duration || 4) === (initialItem.duration || 4)
-      );
-      return matches.length > 1;
-    }
-    return false;
-  }, [initialItem, allItems]);
+    return recurringGroupItems.length > 1;
+  }, [initialItem, recurringGroupItems]);
 
   useEffect(() => {
     setConfirmMode('none');
+    setEditScope('all');
     if (initialItem) {
       setTitle(initialItem.title);
       setDate(initialItem.date);
@@ -89,13 +97,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       const isGroup =
         initialItem.isRecurring ||
         !!initialItem.recurringGroupId ||
-        (allItems &&
-          allItems.filter(
-            (it) =>
-              it.title.trim() === initialItem.title.trim() &&
-              it.startHour === initialItem.startHour &&
-              (it.startMinute || 0) === (initialItem.startMinute || 0)
-          ).length > 1);
+        recurringGroupItems.length > 1;
 
       setIsRecurring(Boolean(isGroup));
       setRecurringType(initialItem.recurringType || 'daily');
@@ -124,7 +126,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     defaultDuration,
     isOpen,
     twoWeekDays,
-    allItems,
+    recurringGroupItems,
   ]);
 
   // 자동 색상 매핑 체크
@@ -168,13 +170,23 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     if (!title.trim() || !date) return;
 
     if (initialItem) {
-      if (isRecurringItem || isRecurring) {
-        setConfirmMode('edit');
-        return;
+      // 기존 일정 수정 처리
+      let updateScope: 'single' | 'all' | 'convertToRecurring' = 'single';
+      if (isRecurringItem) {
+        updateScope = editScope;
+      } else if (isRecurring) {
+        updateScope = 'convertToRecurring';
       }
-      onSave(getSubmitData(), undefined);
+
+      onSave(getSubmitData(), {
+        isRecurring: isRecurring,
+        type: recurringType,
+        days: recurringDays,
+        updateScope: updateScope,
+      });
       onClose();
     } else {
+      // 신규 일정 생성
       onSave(
         getSubmitData(),
         isRecurring ? { isRecurring: true, type: recurringType, days: recurringDays } : undefined
@@ -410,9 +422,54 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* 기존 일정을 수정하는 중이고, 해당 일정이 반복 일정인 경우: 수정 범위 직접 선택 */}
+            {initialItem && (isRecurringItem || isRecurring) && (
+              <div className="pt-2.5 mt-2 border-t border-[#E5E1DA] space-y-1.5">
+                <label className="block text-[11px] font-bold text-[#2D2926]">수정 적용 범위</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label
+                    className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                      editScope === 'all'
+                        ? 'bg-[#E8F5E9] border-[#A5D6A7] text-[#1B5E20] font-medium'
+                        : 'bg-white border border-[#E5E1DA] text-[#2D2926]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="editScope"
+                      checked={editScope === 'all'}
+                      onChange={() => setEditScope('all')}
+                      className="accent-[#2E7D32]"
+                    />
+                    <span>
+                      모든 반복 일정 수정
+                      {recurringGroupItems.length > 0 ? ` (${recurringGroupItems.length}개)` : ''}
+                    </span>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                      editScope === 'single'
+                        ? 'bg-[#E8F5E9] border-[#A5D6A7] text-[#1B5E20] font-medium'
+                        : 'bg-white border border-[#E5E1DA] text-[#2D2926]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="editScope"
+                      checked={editScope === 'single'}
+                      onChange={() => setEditScope('single')}
+                      className="accent-[#2E7D32]"
+                    />
+                    <span>이 일정만 수정</span>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* 반복 삭제 / 수정 옵션 대화상자 */}
+          {/* 반복 삭제 옵션 대화상자 */}
           {confirmMode === 'delete' && (
             <div className="p-4 bg-[#FFF5F5] border border-[#F8BBD0] rounded-xl space-y-2.5 animate-in fade-in duration-150">
               <div className="flex items-start gap-2">
@@ -446,65 +503,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                   className="px-3 py-2 bg-[#C94A4A] text-white rounded-lg text-xs font-medium hover:bg-[#A83838] transition-all shadow-2xs cursor-pointer"
                 >
                   모든 반복 일정 삭제
-                </button>
-              </div>
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setConfirmMode('none')}
-                  className="text-[11px] text-[#8C857E] hover:underline cursor-pointer"
-                >
-                  취소
-                </button>
-              </div>
-            </div>
-          )}
-
-          {confirmMode === 'edit' && (
-            <div className="p-4 bg-[#F0FAF7] border border-[#B2DFDB] rounded-xl space-y-2.5 animate-in fade-in duration-150">
-              <div className="flex items-start gap-2">
-                <RefreshCw className="w-4 h-4 text-[#0F6856] shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-bold text-[#0F6856]">반복 일정 수정 범위 선택</h4>
-                  <p className="text-[11px] text-[#555] mt-0.5">
-                    {initialItem && !isRecurringItem && isRecurring
-                      ? '단일 일정을 반복 일정으로 변경합니다. 적용 범위를 선택하세요.'
-                      : '이 일정은 반복 그룹에 속해 있습니다. 수정을 적용할 범위를 선택해주세요.'}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSave(
-                      getSubmitData(),
-                      isRecurring
-                        ? { isRecurring: true, type: recurringType, days: recurringDays, updateScope: 'single' }
-                        : undefined
-                    );
-                    setConfirmMode('none');
-                    onClose();
-                  }}
-                  className="px-3 py-2 bg-white border border-[#E5E1DA] rounded-lg text-xs font-medium text-[#2D2926] hover:bg-[#FAF9F7] transition-all cursor-pointer"
-                >
-                  이 일정만 수정
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSave(getSubmitData(), {
-                      isRecurring: isRecurring,
-                      type: recurringType,
-                      days: recurringDays,
-                      updateScope: isRecurringItem ? 'all' : 'convertToRecurring',
-                    });
-                    setConfirmMode('none');
-                    onClose();
-                  }}
-                  className="px-3 py-2 bg-[#0F6856] text-white rounded-lg text-xs font-medium hover:bg-[#0B4F41] transition-all shadow-2xs cursor-pointer"
-                >
-                  {isRecurringItem ? '모든 반복 일정 수정' : '반복 일정으로 전환 (8주간)'}
                 </button>
               </div>
               <div className="text-center">
