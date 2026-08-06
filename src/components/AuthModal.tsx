@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Phone, Lock, LogIn, UserPlus, CheckCircle2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { loginWithPhone, registerWithPhone, formatPhoneNumber } from '../lib/authService';
-import { UserProfile, ScheduleItem, DailyEvents } from '../types';
-import { DEFAULT_USER, INITIAL_COLOR_MAP } from '../utils/constants';
+import { UserProfile, ScheduleItem, DailyEvents, CategoryItem } from '../types';
+import { DEFAULT_USER, INITIAL_CATEGORIES } from '../utils/constants';
 import { generateSampleData } from '../utils/sampleData';
 
 interface AuthModalProps {
@@ -12,7 +12,7 @@ interface AuthModalProps {
   currentData: {
     userProfile: UserProfile;
     items: ScheduleItem[];
-    colorMap: Record<string, { color: string; textColor: string }>;
+    categories: CategoryItem[];
     dailyEvents: DailyEvents;
   };
 }
@@ -73,7 +73,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         const freshDefaultData = {
           userProfile: DEFAULT_USER,
           items: generateSampleData(),
-          colorMap: INITIAL_COLOR_MAP,
+          categories: INITIAL_CATEGORIES,
           dailyEvents: {},
         };
         const { docId } = await registerWithPhone(phoneNumber, password, autoLogin, freshDefaultData);

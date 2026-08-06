@@ -264,17 +264,6 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
             <Plus className="w-3.5 h-3.5" />
             <span>열 추가 ({columns.length}/8)</span>
           </button>
-
-          {/* 열 삭제 */}
-          <button
-            onClick={() => handleDeleteColumn(columns.length - 1)}
-            disabled={columns.length <= 1}
-            className="px-3 py-1.5 bg-[#FAF9F7] hover:bg-[#FFF1F2] hover:text-[#C94A4A] border border-[#E5E1DA] text-[#2D2926] rounded-xl text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-40"
-            title="마지막 열 삭제"
-          >
-            <Minus className="w-3.5 h-3.5" />
-            <span>열 삭제</span>
-          </button>
         </div>
       </div>
 
@@ -334,17 +323,6 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                         >
                           {colName}
                         </span>
-
-                        {/* 열 삭제 버튼 (Hover 시 노출) */}
-                        {columns.length > 1 && (
-                          <button
-                            onClick={() => handleDeleteColumn(colIdx)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#F0ECE1] text-[#C94A4A] rounded-md transition-opacity"
-                            title="이 열 삭제"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
                       </div>
                     )}
                   </th>
@@ -368,9 +346,6 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                       <div className="flex flex-col items-center justify-center">
                         <span className="text-[#2D2926] font-bold tracking-tight">
                           {year}년
-                        </span>
-                        <span className="text-[10px] text-[#8C857E] font-sans font-normal mt-0.5">
-                          {yearIdx === 0 ? 'Start' : `+${yearIdx}년`}
                         </span>
                       </div>
                     </td>

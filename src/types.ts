@@ -27,6 +27,13 @@ export interface UserProfile {
   avatarUrl?: string;
 }
 
+export interface CategoryItem {
+  id: string;
+  name: string;
+  color: string;
+  textColor: string;
+}
+
 export interface ColorMapping {
   [title: string]: {
     color: string;

@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles, Plus, Palette } from 'lucide-react';
-import { ColorMapping } from '../types';
+import { ChevronLeft, ChevronRight, Palette, Settings } from 'lucide-react';
+import { CategoryItem } from '../types';
 import { formatDateKey } from '../utils/dateUtils';
 
 interface MonthCalendarAndCategoryProps {
   currentWeekStartDate: Date;
   onSelectDate: (date: Date) => void;
-  colorMap: ColorMapping;
+  categories: CategoryItem[];
   onOpenColorManager: () => void;
 }
 
 export const MonthCalendarAndCategory: React.FC<MonthCalendarAndCategoryProps> = ({
   currentWeekStartDate,
   onSelectDate,
-  colorMap,
+  categories,
   onOpenColorManager,
 }) => {
   // 달력 표시용 년/월 state
@@ -140,48 +140,49 @@ export const MonthCalendarAndCategory: React.FC<MonthCalendarAndCategoryProps> =
         </div>
       </div>
 
-      {/* 2. 색상별 카테고리 안내 카드 */}
+      {/* 2. 색상 카테고리 안내 카드 */}
       <div className="lux-card p-4">
         <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-[#E5E1DA]">
           <div className="flex items-center gap-1.5">
             <Palette className="w-4 h-4 text-[#8C857E]" />
             <h3 className="text-sm font-gothic font-semibold text-[#2D2926]">
-              색상 카테고리 안내
+              카테고리 색상 안내
             </h3>
           </div>
           <button
             onClick={onOpenColorManager}
             className="px-2.5 py-1 rounded-full bg-[#FAF9F7] border border-[#E5E1DA] hover:bg-[#F0FAF7] text-[#2D2926] text-xs font-gothic font-medium transition-colors flex items-center gap-1 shadow-2xs"
-            title="자동 색상 규칙 관리"
+            title="카테고리 설정 및 관리"
           >
-            <Sparkles className="w-3 h-3 text-[#C28E00]" />
-            <span>자동 색상 설정</span>
+            <Settings className="w-3 h-3 text-[#2563EB]" />
+            <span>카테고리 설정</span>
           </button>
         </div>
 
         <p className="text-[11px] font-gothic text-[#8C857E] mb-3 leading-snug">
-          일정 제목에 키워드가 포함되면 지정한 파스텔 색상이 자동 적용됩니다.
+          사용자가 직접 설정한 카테고리 색상 범례 목록입니다.
         </p>
 
         {/* 카테고리 태그 목록 */}
         <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-          {Object.entries(colorMap).map(([titleKey, val]) => {
-            const item = val as { color: string; textColor: string };
-            return (
+          {categories.length === 0 ? (
+            <p className="text-xs text-[#8C857E] text-center py-3">설정된 카테고리가 없습니다.</p>
+          ) : (
+            categories.map((cat) => (
               <div
-                key={titleKey}
+                key={cat.id}
                 className="px-2.5 py-1.5 rounded-lg border flex items-center justify-between text-xs transition-colors"
                 style={{
-                  backgroundColor: item.color,
-                  borderColor: `${item.color}DD`,
-                  color: item.textColor,
+                  backgroundColor: cat.color,
+                  borderColor: `${cat.color}DD`,
+                  color: cat.textColor,
                 }}
               >
-                <span className="font-gothic font-medium text-[11px] truncate">{titleKey}</span>
-                <span className="w-2 h-2 rounded-full opacity-70" style={{ backgroundColor: item.textColor }} />
+                <span className="font-gothic font-medium text-[11px] truncate">{cat.name}</span>
+                <span className="w-2 h-2 rounded-full opacity-70" style={{ backgroundColor: cat.textColor }} />
               </div>
-            );
-          })}
+            ))
+          )}
         </div>
       </div>
     </div>

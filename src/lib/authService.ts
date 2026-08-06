@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { ScheduleItem, UserProfile, DailyEvents, YearlyScheduleItem, LongTermPlannerData } from '../types';
+import { ScheduleItem, UserProfile, DailyEvents, YearlyScheduleItem, LongTermPlannerData, CategoryItem } from '../types';
 
 export { auth, db };
 
@@ -38,7 +38,8 @@ export interface UserPlannerData {
   items: ScheduleItem[];
   yearlyItems?: YearlyScheduleItem[];
   longTermPlanner?: LongTermPlannerData;
-  colorMap: Record<string, { color: string; textColor: string }>;
+  categories?: CategoryItem[];
+  colorMap?: Record<string, { color: string; textColor: string }>;
   dailyEvents: DailyEvents;
   updatedAt: string;
   passHash?: string;
@@ -164,7 +165,8 @@ export async function registerWithPhone(
   initialData: {
     userProfile: UserProfile;
     items: ScheduleItem[];
-    colorMap: Record<string, { color: string; textColor: string }>;
+    categories?: CategoryItem[];
+    colorMap?: Record<string, { color: string; textColor: string }>;
     dailyEvents: DailyEvents;
   }
 ): Promise<{ user: User | null; docId: string }> {
@@ -216,6 +218,7 @@ export async function registerWithPhone(
       name: initialData.userProfile.name ?? '',
     },
     items: initialData.items || [],
+    categories: initialData.categories || [],
     colorMap: initialData.colorMap || {},
     dailyEvents: initialData.dailyEvents || {},
     updatedAt: new Date().toISOString(),
@@ -281,7 +284,8 @@ export async function saveUserDataToFirestore(
     items: ScheduleItem[];
     yearlyItems?: YearlyScheduleItem[];
     longTermPlanner?: LongTermPlannerData;
-    colorMap: Record<string, { color: string; textColor: string }>;
+    categories?: CategoryItem[];
+    colorMap?: Record<string, { color: string; textColor: string }>;
     dailyEvents: DailyEvents;
   }
 ) {
@@ -296,6 +300,7 @@ export async function saveUserDataToFirestore(
       items: data.items,
       yearlyItems: data.yearlyItems || [],
       longTermPlanner: data.longTermPlanner,
+      categories: data.categories,
       colorMap: data.colorMap,
       dailyEvents: data.dailyEvents,
       updatedAt: new Date().toISOString(),

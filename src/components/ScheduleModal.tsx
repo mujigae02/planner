@@ -12,7 +12,6 @@ interface ScheduleModalProps {
   defaultStartMinute?: number;
   defaultDuration?: number;
   twoWeekDays: Date[];
-  colorMap: Record<string, { color: string; textColor: string }>;
   allItems?: ScheduleItem[];
   onSave: (
     itemData: Partial<ScheduleItem>,
@@ -35,7 +34,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   defaultStartMinute = 0,
   defaultDuration = 4, // 기본 1시간 (4개 15분 슬롯)
   twoWeekDays,
-  colorMap,
   allItems = [],
   onSave,
   onDelete,
@@ -46,7 +44,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [startMinute, setStartMinute] = useState(defaultStartMinute);
   const [durationSlots, setDurationSlots] = useState(defaultDuration);
   const [selectedColor, setSelectedColor] = useState(PASTEL_COLORS[0]);
-  const [autoMatched, setAutoMatched] = useState(false);
 
   // 반복 일정 설정
   const [isRecurring, setIsRecurring] = useState(false);
@@ -92,7 +89,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
       const matchedColor = PASTEL_COLORS.find((c) => c.bg === initialItem.color) || PASTEL_COLORS[0];
       setSelectedColor(matchedColor);
-      setAutoMatched(false);
 
       const isGroup =
         initialItem.isRecurring ||
@@ -113,7 +109,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setStartMinute(defaultStartMinute);
       setDurationSlots(defaultDuration);
       setSelectedColor(PASTEL_COLORS[0]);
-      setAutoMatched(false);
       setIsRecurring(false);
       setRecurringType('daily');
       setRecurringDays([1, 3, 5]);
@@ -129,21 +124,8 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     recurringGroupItems,
   ]);
 
-  // 자동 색상 매핑 체크
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value;
-    setTitle(newTitle);
-
-    if (newTitle.trim() && colorMap[newTitle.trim()]) {
-      const savedMap = colorMap[newTitle.trim()];
-      const matched = PASTEL_COLORS.find((c) => c.bg === savedMap.color);
-      if (matched) {
-        setSelectedColor(matched);
-        setAutoMatched(true);
-        return;
-      }
-    }
-    setAutoMatched(false);
+    setTitle(e.target.value);
   };
 
   const handleToggleDay = (dayIndex: number) => {
@@ -247,7 +229,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
         {/* 모달 폼 바디 */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-          {/* 일정 제목 입력 & 자동 색상 안내 */}
+          {/* 일정 제목 입력 */}
           <div>
             <label className="block text-xs font-medium text-[#2D2926] mb-1">
               일정 내용 <span className="text-[#C94A4A]">*</span>
@@ -260,12 +242,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
               placeholder="예: 독서, 프로젝트 회의, 운동, 전공 강의"
               className="w-full px-4 py-3 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-base font-gothic font-medium focus:outline-none focus:ring-2 focus:ring-[#2D2926]/20 text-[#2D2926]"
             />
-            {autoMatched && (
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-[#0F6856] font-medium bg-[#F0FAF7] p-2 rounded-lg border border-[#D0EAE2]">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>이전에 사용하신 파스텔 색상이 자동으로 매핑되었습니다!</span>
-              </div>
-            )}
           </div>
 
           {/* 날짜 / 시간 (15분 단위) 선택 */}
@@ -331,19 +307,13 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
           <div>
             <label className="block text-xs font-medium text-[#2D2926] mb-1.5 flex items-center justify-between">
               <span>파스텔 배경 색상</span>
-              <span className="text-[11px] font-normal text-[#8C857E]">
-                선택 시 해당 일정 내용에 색상이 기억됩니다
-              </span>
             </label>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {PASTEL_COLORS.map((c) => (
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => {
-                    setSelectedColor(c);
-                    setAutoMatched(false);
-                  }}
+                  onClick={() => setSelectedColor(c)}
                   className={`p-2 rounded-xl text-xs font-medium border flex items-center justify-center gap-1 transition-all ${
                     selectedColor.id === c.id
                       ? 'ring-2 ring-[#2D2926] ring-offset-1 font-bold shadow-2xs'

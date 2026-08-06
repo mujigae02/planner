@@ -1,4 +1,4 @@
-import { PresetColor } from '../types';
+import { PresetColor, CategoryItem } from '../types';
 
 export const HOURS = Array.from({ length: 19 }, (_, i) => i + 5); // 5 to 23
 export const MINUTES_15 = [0, 15, 30, 45];
@@ -41,3 +41,12 @@ export const INITIAL_COLOR_MAP: Record<string, { color: string; textColor: strin
   '가족 시간': { color: '#FCE4EC', textColor: '#880E4F' },
   '자기계발 공부': { color: '#FEF9C3', textColor: '#713F12' },
 };
+
+export const INITIAL_CATEGORIES: CategoryItem[] = [
+  { id: 'cat-1', name: '독서 및 명상', color: '#F3E8FF', textColor: '#6B21A8' },
+  { id: 'cat-2', name: '업무 프로젝트', color: '#E3F2FD', textColor: '#0D47A1' },
+  { id: 'cat-3', name: '운동 및 스트레칭', color: '#E6F4EA', textColor: '#137333' },
+  { id: 'cat-4', name: '개인 정돈', color: '#FFF3E0', textColor: '#E65100' },
+  { id: 'cat-5', name: '가족 시간', color: '#FCE4EC', textColor: '#880E4F' },
+  { id: 'cat-6', name: '자기계발 공부', color: '#FEF9C3', textColor: '#713F12' },
+];

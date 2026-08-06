@@ -9,9 +9,9 @@ import { LongTermPlannerView } from './components/LongTermPlannerView';
 import { UserAccountBar } from './components/UserAccountBar';
 import { AuthModal } from './components/AuthModal';
 import { WeeklyActionControls } from './components/WeeklyActionControls';
-import { ScheduleItem, UserProfile, DailyEvents, YearlyScheduleItem, LongTermPlannerData } from './types';
+import { ScheduleItem, UserProfile, DailyEvents, YearlyScheduleItem, LongTermPlannerData, CategoryItem } from './types';
 import { getMonday, getTwoWeekDays, formatDateKey, parseDateKey, formatKoreanDateShort } from './utils/dateUtils';
-import { DEFAULT_USER, INITIAL_COLOR_MAP } from './utils/constants';
+import { DEFAULT_USER, INITIAL_CATEGORIES } from './utils/constants';
 import { generateSampleData } from './utils/sampleData';
 import {
   auth,
@@ -26,6 +26,7 @@ const STORAGE_KEYS = {
   ITEMS: 'lux_life_planner_items_v2',
   YEARLY_ITEMS: 'lux_life_planner_yearly_items_v2',
   LONG_TERM_PLANNER: 'lux_life_planner_long_term_v2',
+  CATEGORIES: 'lux_life_planner_categories_v2',
   COLOR_MAP: 'lux_life_planner_color_map_v2',
   DAILY_EVENTS: 'lux_life_planner_daily_events_v2',
 };
@@ -82,12 +83,13 @@ export default function App() {
     }
   });
 
-  const [colorMap, setColorMap] = useState<Record<string, { color: string; textColor: string }>>(() => {
+  const [categories, setCategories] = useState<CategoryItem[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.COLOR_MAP);
-      return saved ? JSON.parse(saved) : INITIAL_COLOR_MAP;
+      const saved = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
+      if (saved) return JSON.parse(saved);
+      return INITIAL_CATEGORIES;
     } catch {
-      return INITIAL_COLOR_MAP;
+      return INITIAL_CATEGORIES;
     }
   });
 
@@ -194,7 +196,7 @@ export default function App() {
     setUserProfile(DEFAULT_USER);
     setItems(generateSampleData());
     setYearlyItems([]);
-    setColorMap(INITIAL_COLOR_MAP);
+    setCategories(INITIAL_CATEGORIES);
     setDailyEvents({});
     setLongTermPlanner(undefined);
 
@@ -230,8 +232,8 @@ export default function App() {
       if (data.longTermPlanner) {
         setLongTermPlanner(data.longTermPlanner);
       }
-      if (data.colorMap) {
-        setColorMap(data.colorMap);
+      if (Array.isArray(data.categories)) {
+        setCategories(data.categories);
       }
       if (data.dailyEvents) {
         setDailyEvents(data.dailyEvents);
@@ -250,11 +252,12 @@ export default function App() {
     try {
       localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
       localStorage.setItem(STORAGE_KEYS.YEARLY_ITEMS, JSON.stringify(yearlyItems));
+      localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
       if (longTermPlanner) {
         localStorage.setItem(STORAGE_KEYS.LONG_TERM_PLANNER, JSON.stringify(longTermPlanner));
       }
     } catch (e) {
-      console.error('Profile/Yearly/LongTerm saving failed', e);
+      console.error('Profile/Yearly/LongTerm/Categories saving failed', e);
     }
 
     const activeDocId = localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
@@ -266,7 +269,7 @@ export default function App() {
         items,
         yearlyItems,
         longTermPlanner,
-        colorMap,
+        categories,
         dailyEvents,
       }).then(() => {
         setIsSyncing(false);
@@ -276,7 +279,7 @@ export default function App() {
         setIsSyncing(false);
       });
     }
-  }, [userProfile, items, yearlyItems, longTermPlanner, colorMap, dailyEvents, currentUser, currentUserPhone]);
+  }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone]);
 
   const handleUpdateDailyEvent = (dateStr: string, text: string) => {
     setDailyEvents((prev) => ({
@@ -504,17 +507,6 @@ export default function App() {
     }
   ) => {
     if (!itemData.title || !itemData.date) return;
-
-    // 제목에 대한 자동 색상 기억 업데이트
-    if (itemData.color && itemData.textColor) {
-      setColorMap((prev) => ({
-        ...prev,
-        [itemData.title!.trim()]: {
-          color: itemData.color!,
-          textColor: itemData.textColor!,
-        },
-      }));
-    }
 
     if (itemData.id) {
       // 기존 일정 수정
@@ -765,7 +757,7 @@ export default function App() {
     if (window.confirm('현재 등록된 일정을 초기화하고 샘플 데이터로 복원하시겠습니까?')) {
       const samples = generateSampleData();
       setItems(samples);
-      setColorMap(INITIAL_COLOR_MAP);
+      setCategories(INITIAL_CATEGORIES);
       setUserProfile(DEFAULT_USER);
     }
   };
@@ -780,7 +772,7 @@ export default function App() {
         items,
         yearlyItems,
         longTermPlanner,
-        colorMap,
+        categories,
         dailyEvents,
       });
       setLastSyncedAt(new Date().toLocaleTimeString());
@@ -859,7 +851,7 @@ export default function App() {
               <MonthCalendarAndCategory
                 currentWeekStartDate={baseMonday}
                 onSelectDate={handleSelectCalendarDate}
-                colorMap={colorMap}
+                categories={categories}
                 onOpenColorManager={() => setIsColorManagerOpen(true)}
               />
             </div>
@@ -902,18 +894,17 @@ export default function App() {
           defaultStartMinute={modalDefaultStartMinute}
           defaultDuration={modalDefaultDuration}
           twoWeekDays={twoWeekDays}
-          colorMap={colorMap}
           allItems={items}
           onSave={handleSaveSchedule}
           onDelete={handleDeleteItem}
         />
 
-        {/* 자동 색상 관리 모달 */}
+        {/* 카테고리 색상 관리 모달 */}
         <ColorManagerModal
           isOpen={isColorManagerOpen}
           onClose={() => setIsColorManagerOpen(false)}
-          colorMap={colorMap}
-          onUpdateColorMap={setColorMap}
+          categories={categories}
+          onUpdateCategories={setCategories}
         />
 
         {/* 전화번호 로그인 / 회원가입 모달 */}
@@ -924,7 +915,7 @@ export default function App() {
           currentData={{
             userProfile,
             items,
-            colorMap,
+            categories,
             dailyEvents,
           }}
         />
