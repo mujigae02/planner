@@ -239,10 +239,10 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                 return (
                   <tr
                     key={s}
-                    className="h-[8px] hover:bg-[#FAF9F7]/30 transition-colors"
+                    className="h-[9px] hover:bg-[#FAF9F7]/30 transition-colors"
                   >
                     {/* 시간 축 표시 (정시에만 시간 표시) - sticky left-0 z-20 align-top */}
-                    <td className={`sticky left-0 z-20 bg-[#FAF9F7] text-center align-top border-r border-[#E5E1DA] select-none p-0 h-[8px] leading-none shadow-2xs ${
+                    <td className={`sticky left-0 z-20 bg-[#FAF9F7] text-center align-top border-r border-[#E5E1DA] select-none p-0 h-[9px] leading-none shadow-2xs ${
                       isHourEnd ? 'border-b border-b-[#D5D1CA]' : 'border-b border-b-[#E5E1DA]/30'
                     }`}>
                       {isHourly && (
@@ -273,7 +273,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                           onMouseEnter={() => handleMouseEnterSlot(dateKey, s)}
                           onMouseUp={handleMouseUpSlot}
                           onClick={() => !dragStart && onSelectSlotToCreate(dateKey, Math.floor(s / 4) + 5, (s % 4) * 15, 4)}
-                          className={`p-0 border-r border-[#E5E1DA] h-[8px] cursor-pointer timetable-cell transition-colors select-none relative ${
+                          className={`p-0 border-r border-[#E5E1DA] h-[9px] cursor-pointer timetable-cell transition-colors select-none relative ${
                             isHourEnd ? 'border-b border-b-[#D5D1CA]' : 'border-b border-b-[#E5E1DA]/30'
                           } ${isSelectedInDrag ? 'bg-[#E3F2FD] border-2 border-[#0D47A1]' : 'hover:bg-[#F8F7F4]'}`}
                         >
@@ -283,8 +283,8 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                               {dayItems.map((item) => {
                                 const startMin = (item.startHour - 5) * 60 + (item.startMinute || 0);
                                 const durMin = Math.max(5, Math.round((item.duration || 4) * 15));
-                                const topPx = (startMin * 8) / 15;
-                                const heightPx = Math.max(6, (durMin * 8) / 15 - 1);
+                                const topPx = (startMin * 9) / 15;
+                                const heightPx = Math.max(7, (durMin * 9) / 15 - 1);
 
                                 return (
                                   <div
