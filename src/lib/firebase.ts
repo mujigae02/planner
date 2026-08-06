@@ -49,13 +49,12 @@ export const db = dbInstance;
 
 async function testConnection() {
   try {
-    if (db) {
+    if (db && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6') {
       await getDocFromServer(doc(db, 'test', 'connection'));
     }
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error('Please check your Firebase configuration.');
-    }
+    // Quiet warning for connection or offline states without logging fatal errors
+    console.warn('Firebase test connection status:', error instanceof Error ? error.message : error);
   }
 }
 testConnection();
