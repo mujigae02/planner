@@ -397,8 +397,6 @@ export default function App() {
       dailyEvents: copiedDailyEvents,
       copiedRangeStr: rangeStr,
     });
-
-    showToast(`📋 ${rangeStr} 주차 일정 ${copiedItems.length}개가 클립보드에 복사되었습니다.`);
   };
 
   // 주단위 일정 붙여넣기 핸들러 (복사된 주간 일정을 목표 7일에 일괄 추가)
@@ -439,7 +437,7 @@ export default function App() {
     endDate.setDate(targetStartDate.getDate() + 6);
     const targetRangeStr = `${formatKoreanDateShort(targetStartDate)} ~ ${formatKoreanDateShort(endDate)}`;
 
-    showToast(`📥 ${targetRangeStr} 주차에 일정을 성공적으로 붙여넣었습니다! (${newItems.length}개)`);
+    showToast(`${targetRangeStr} 주차에 일정을 성공적으로 붙여넣었습니다! (${newItems.length}개)`);
   };
 
   // 5. 모달 열기 핸들러
@@ -815,7 +813,7 @@ export default function App() {
 
         {/* 토스트 메세지 배너 */}
         {toastMessage && (
-          <div className="fixed bottom-6 right-6 z-50 bg-[#2D2926] text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/20 text-xs font-semibold font-sans-kr flex items-center gap-2 animate-bounce">
+          <div className="fixed bottom-6 right-6 z-50 bg-[#20487C] text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/20 text-xs font-semibold font-sans-kr flex items-center gap-2 animate-bounce">
             <span>{toastMessage}</span>
           </div>
         )}
@@ -850,6 +848,7 @@ export default function App() {
             <div className="lg:col-span-3">
               <TimetableGrid
                 twoWeekDays={twoWeekDays}
+                baseMonday={baseMonday}
                 items={items}
                 dailyEvents={dailyEvents}
                 onUpdateDailyEvent={handleUpdateDailyEvent}
@@ -862,9 +861,10 @@ export default function App() {
             </div>
           </div>
         ) : (
-          /* 보기 옵션 1 (기본값): 2주치를 한 화면에 상하가 아닌 좌우로 펼쳐서 보기 */
+          /* 보기 옵션 1 (기본값): 스와이프하며 과거/미래 일정을 연속으로 보기 */
           <TimetableGrid
             twoWeekDays={twoWeekDays}
+            baseMonday={baseMonday}
             items={items}
             dailyEvents={dailyEvents}
             onUpdateDailyEvent={handleUpdateDailyEvent}
@@ -914,7 +914,7 @@ export default function App() {
 
         {/* 푸터 */}
         <footer className="mt-8 text-center text-xs text-[#8C857E] font-serif-kr no-print py-4 border-t border-[#E5E1DA]">
-          <p>Professional Polish Life Planner • 모바일 &amp; PC 실시간 동기화 지원</p>
+          <p>Professional Polish Life Planner • Created by 다세랑 • 모바일 &amp; PC 실시간 동기화 지원</p>
         </footer>
       </div>
     </div>

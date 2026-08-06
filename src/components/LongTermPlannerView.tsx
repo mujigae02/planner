@@ -169,7 +169,7 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
       {/* 상단 옵션 패널 (다른 옵션 화면들과 통일된 헤더 스타일) */}
       <div className="lux-card p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <Table className="w-5 h-5 md:w-6 md:h-6 text-[#2563EB] shrink-0" />
+          <Table className="w-5 h-5 md:w-6 md:h-6 text-[#20487C] shrink-0" />
           <div>
             <h2 className="text-lg md:text-xl font-serif-kr font-bold text-[#1A1A1A]">
               장기 계획
@@ -185,7 +185,7 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
           {/* 셀 글자색 선택 툴바 (깔끔하게 상단 레벨로 이동) */}
           <div className="flex items-center gap-2 bg-[#FAF9F7] px-3 py-1.5 rounded-xl border border-[#E5E1DA] text-xs">
             <div className="flex items-center gap-1 font-bold text-[#2D2926]">
-              <Palette className="w-3.5 h-3.5 text-[#2563EB]" />
+              <Palette className="w-3.5 h-3.5 text-[#20487C]" />
               <span>글자색:</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -206,7 +206,7 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                     }}
                     className={`w-4 h-4 rounded-full transition-all transform hover:scale-125 ${
                       isSelected
-                        ? 'ring-2 ring-[#2563EB] ring-offset-1 scale-110 shadow-2xs'
+                        ? 'ring-2 ring-[#20487C] ring-offset-1 scale-110 shadow-2xs'
                         : 'opacity-85 hover:opacity-100'
                     }`}
                     style={{ backgroundColor: opt.color }}
@@ -258,7 +258,7 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
           <button
             onClick={handleAddColumn}
             disabled={columns.length >= 8}
-            className="px-3 py-1.5 bg-[#FAF9F7] hover:bg-[#2563EB] hover:text-white border border-[#E5E1DA] text-[#2D2926] rounded-xl text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-40"
+            className="px-3 py-1.5 bg-[#FAF9F7] hover:bg-[#20487C] hover:text-white border border-[#E5E1DA] text-[#2D2926] rounded-xl text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-40"
             title="목표 분야 열 추가"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -270,9 +270,9 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
       {/* 안내 패널 */}
       <div className="p-3 bg-[#FAF9F7] border border-[#E5E1DA] rounded-xl flex items-center justify-between gap-2 text-xs text-[#555]">
         <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-[#2563EB] shrink-0" />
+          <Info className="w-4 h-4 text-[#20487C] shrink-0" />
           <span>
-            <strong>팁:</strong> 각 열 제목(컬럼명)을 클릭하여 분야명을 수정할 수 있으며, 입력 셀을 선택(클릭)한 후 상단 툴바의 <strong>글자색(검정, 파랑, 빨강, 초록, 보라, 주황)</strong> 버튼을 누르면 깔끔하게 지정됩니다.
+            각 열 제목(컬럼명)을 클릭하여 분야명을 수정할 수 있으며, 입력 셀을 선택(클릭)한 후 상단 툴바의 <strong>글자색(검정, 파랑, 빨강, 초록, 보라, 주황)</strong> 버튼을 누르면 깔끔하게 지정됩니다.
           </span>
         </div>
       </div>
@@ -288,7 +288,6 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                 {/* 1번째 열: 년도 (주간계획표 시간 헤더 스타일) */}
                 <th className="w-28 md:w-36 p-3 md:p-3.5 bg-[#FAF9F7] text-[#2D2926] font-sans-kr font-bold text-xs md:text-sm tracking-wider text-center border-r border-[#E5E1DA] sticky left-0 z-30">
                   <div className="flex items-center justify-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-[#2563EB]" />
                     <span>년도</span>
                   </div>
                 </th>
@@ -297,10 +296,10 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                 {columns.map((colName, colIdx) => (
                   <th
                     key={colIdx}
-                    className="p-3 md:p-3.5 bg-[#FAF9F7] text-[#2D2926] font-sans-kr font-bold text-xs md:text-sm border-r border-[#E5E1DA] last:border-r-0 min-w-[150px] group transition-colors relative"
+                    className="p-3 md:p-3.5 bg-[#FAF9F7] text-[#2D2926] font-sans-kr font-bold text-xs md:text-sm border-r border-[#E5E1DA] last:border-r-0 min-w-[150px] group transition-colors relative text-center"
                   >
                     {editingColIdx === colIdx ? (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center justify-center gap-1">
                         <input
                           type="text"
                           value={colTitleInput}
@@ -309,16 +308,16 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                             if (e.key === 'Enter') handleSaveColTitle(colIdx);
                             if (e.key === 'Escape') setEditingColIdx(null);
                           }}
-                          className="w-full px-2 py-1 text-xs bg-white border border-[#2563EB] text-[#2D2926] rounded-md font-bold focus:outline-none"
+                          className="w-full px-2 py-1 text-xs bg-white border border-[#2563EB] text-[#2D2926] rounded-md font-bold focus:outline-none text-center"
                           autoFocus
                           onBlur={() => handleSaveColTitle(colIdx)}
                         />
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center justify-center gap-1">
                         <span
                           onClick={() => handleStartEditCol(colIdx)}
-                          className="cursor-pointer hover:text-[#2563EB] hover:underline decoration-dotted underline-offset-4 flex-1 truncate"
+                          className="cursor-pointer hover:underline decoration-dotted underline-offset-4 flex-1 truncate text-center"
                           title="클릭하여 열 이름 수정"
                         >
                           {colName}
@@ -344,7 +343,7 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                     {/* 년도 셀 (좌측 sticky 고정) */}
                     <td className="w-28 md:w-36 p-2 font-serif-kr font-bold text-xs md:text-sm text-[#2D2926] bg-[#FAF9F7] border-r border-[#E5E1DA] text-center sticky left-0 z-10 shadow-xs h-16">
                       <div className="flex flex-col items-center justify-center">
-                        <span className="text-[#2D2926] font-bold tracking-tight">
+                        <span className="text-[#20487C] font-bold tracking-tight text-sm md:text-base">
                           {year}년
                         </span>
                       </div>

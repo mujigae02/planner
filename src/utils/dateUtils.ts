@@ -41,6 +41,24 @@ export function getTwoWeekDays(startDate: Date): Date[] {
   return days;
 }
 
+/**
+ * 연속 보기용 날짜 배열 구하기 (기준 월요일 전후 pastWeeks ~ futureWeeks 주)
+ */
+export function getContinuousDays(baseDate: Date, pastWeeks = 6, futureWeeks = 6): Date[] {
+  const startMonday = getMonday(baseDate);
+  const start = new Date(startMonday);
+  start.setDate(startMonday.getDate() - pastWeeks * 7);
+
+  const totalDays = (pastWeeks + 1 + futureWeeks) * 7;
+  const days: Date[] = [];
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push(d);
+  }
+  return days;
+}
+
 export function formatKoreanDate(date: Date): string {
   const month = date.getMonth() + 1;
   const day = date.getDate();

@@ -181,7 +181,7 @@ export const YearlyCalendarView: React.FC<YearlyCalendarViewProps> = ({
       {/* 상단 컨트롤 헤더 */}
       <div className="lux-card p-4 flex flex-col md:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-[#2563EB] shrink-0" />
+          <CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-[#20487C] shrink-0" />
           <div>
             <h2 className="text-lg md:text-xl font-serif-kr font-bold text-[#1A1A1A]">
               {selectedYear}년 년간 계획
@@ -207,7 +207,7 @@ export const YearlyCalendarView: React.FC<YearlyCalendarViewProps> = ({
               onClick={handleThisYear}
               className="px-3.5 py-1.5 rounded-full bg-[#2563EB] text-white text-xs font-semibold transition-colors mx-0.5 shadow-2xs hover:bg-[#1D4ED8]"
             >
-              올해 ({new Date().getFullYear()}년)
+              올해
             </button>
             <button
               onClick={handleNextYear}
@@ -218,20 +218,12 @@ export const YearlyCalendarView: React.FC<YearlyCalendarViewProps> = ({
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-
-          <button
-            onClick={handleOpenAddGeneral}
-            className="px-3.5 py-1.5 rounded-full bg-[#20487C] hover:bg-[#16355C] text-white text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>일정 추가</span>
-          </button>
         </div>
       </div>
 
       {/* 안내 알림 바 */}
       <div className="p-3 bg-[#FAF9F7] border border-[#E5E1DA] rounded-xl flex items-center gap-2 text-xs text-[#555]">
-        <Info className="w-4 h-4 text-[#2563EB] shrink-0" />
+        <Info className="w-4 h-4 text-[#20487C] shrink-0" />
         <span>
           이 연간 달력은 <strong>날짜 그리드 없이 12달의 빈 공간</strong>으로 구성되며, 주간 계획표 타임테이블과 섞이지 않고 독립적으로 보존됩니다.
         </span>
@@ -252,7 +244,7 @@ export const YearlyCalendarView: React.FC<YearlyCalendarViewProps> = ({
               <div>
                 <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-[#E5E1DA]">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-serif-kr font-bold text-[#1A1A1A]">
+                    <span className="text-lg font-serif-kr font-bold text-[#20487C]">
                       {monthName}
                     </span>
                     {monthItems.length > 0 && (

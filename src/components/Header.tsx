@@ -169,14 +169,14 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="px-3 py-1 bg-[#FAF9F7] rounded-full border border-[#E5E1DA] text-[#2D2926] text-xs font-serif-kr font-medium flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-[#8C857E]" />
+            <Calendar className="w-3.5 h-3.5 text-[#20487C]" />
             <span>
               {startDate ? formatKoreanDateShort(startDate) : ''} ~ {endDate ? formatKoreanDateShort(endDate) : ''}
             </span>
           </div>
         </div>
 
-        {/* 뷰 모드 탭 (현재 위치를 나타내는 색상: 검정 -> 파랑 bg-[#2563EB]) */}
+        {/* 뷰 모드 탭 (현재 위치를 나타내는 색상: 파랑 bg-[#2563EB]) */}
         <div className="flex items-center bg-white border border-[#E5E1DA] rounded-full p-0.5 self-start sm:self-auto shadow-2xs flex-wrap">
           <button
             onClick={() => onViewModeChange('twoWeekHorizontal')}
@@ -185,10 +185,10 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'bg-[#2563EB] text-white shadow-2xs'
                 : 'text-[#8C857E] hover:text-[#2563EB] hover:bg-[#F0F6FF]'
             }`}
-            title="2주치 일정을 한 화면에서 넓게 보기"
+            title="스와이프하며 과거/미래 일정을 연속해서 보기"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
-            <span>2주 보기</span>
+            <span>연속 보기</span>
           </button>
 
           <button

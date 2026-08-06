@@ -199,8 +199,40 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     return `${hrs}시간 ${mins}분`;
   };
 
-  // 소요 시간 옵션들 (15분 ~ 8시간)
-  const durationOptions = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20, 24, 32];
+  // 슬롯 인덱스 (0 = 05:00) -> "HH:MM" 시간 문자열
+  const slotToTimeString = (slotIndex: number): string => {
+    const totalMinutes = 5 * 60 + slotIndex * 15;
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  const currentStartSlot = Math.max(0, Math.min(75, (startHour - 5) * 4 + Math.floor(startMinute / 15)));
+  const currentEndSlot = Math.min(76, currentStartSlot + durationSlots);
+
+  const allStartSlots = Array.from({ length: 76 }, (_, i) => i);
+  const availableEndSlots = Array.from({ length: 76 - currentStartSlot }, (_, i) => currentStartSlot + 1 + i);
+
+  const handleStartSlotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStartSlot = Number(e.target.value);
+    const newStartHour = Math.floor((5 * 60 + newStartSlot * 15) / 60);
+    const newStartMinute = (5 * 60 + newStartSlot * 15) % 60;
+
+    setStartHour(newStartHour);
+    setStartMinute(newStartMinute);
+
+    if (newStartSlot >= currentEndSlot) {
+      const newEndSlot = Math.min(76, newStartSlot + 4);
+      setDurationSlots(newEndSlot - newStartSlot);
+    } else {
+      setDurationSlots(currentEndSlot - newStartSlot);
+    }
+  };
+
+  const handleEndSlotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newEndSlot = Number(e.target.value);
+    setDurationSlots(Math.max(1, newEndSlot - currentStartSlot));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs font-sans-kr">
@@ -244,59 +276,44 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             />
           </div>
 
-          {/* 날짜 / 시간 (15분 단위) 선택 */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
-            <div className="md:col-span-1">
+          {/* 날짜 / 시작 시간 / 종료 시간 (15분 단위) 선택 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            <div>
               <label className="block text-xs font-medium text-[#2D2926] mb-1">날짜</label>
               <input
                 type="date"
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-2.5 py-2 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#2D2926]/20 text-[#2D2926]"
+                className="w-full px-2.5 py-2 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#20487C]/30 text-[#2D2926]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#2D2926] mb-1">시작 시</label>
+              <label className="block text-xs font-medium text-[#2D2926] mb-1">시작 시간</label>
               <select
-                value={startHour}
-                onChange={(e) => setStartHour(Number(e.target.value))}
-                className="w-full px-2.5 py-2 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#2D2926]/20 text-[#2D2926]"
+                value={currentStartSlot}
+                onChange={handleStartSlotChange}
+                className="w-full px-2.5 py-2 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#20487C]/30 text-[#2D2926]"
               >
-                {HOURS.map((h) => (
-                  <option key={h} value={h}>
-                    {String(h).padStart(2, '0')}시
+                {allStartSlots.map((s) => (
+                  <option key={s} value={s}>
+                    {slotToTimeString(s)}
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#2D2926] mb-1">시작 분</label>
+              <label className="block text-xs font-medium text-[#2D2926] mb-1">끝나는 시간</label>
               <select
-                value={startMinute}
-                onChange={(e) => setStartMinute(Number(e.target.value))}
-                className="w-full px-2.5 py-2 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#2D2926]/20 text-[#2D2926]"
+                value={currentEndSlot}
+                onChange={handleEndSlotChange}
+                className="w-full px-2.5 py-2 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#20487C]/30 text-[#2D2926]"
               >
-                {MINUTES_15.map((m) => (
-                  <option key={m} value={m}>
-                    {String(m).padStart(2, '0')}분
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[#2D2926] mb-1">소요 시간</label>
-              <select
-                value={durationSlots}
-                onChange={(e) => setDurationSlots(Number(e.target.value))}
-                className="w-full px-2.5 py-2 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#2D2926]/20 text-[#2D2926]"
-              >
-                {durationOptions.map((slots) => (
-                  <option key={slots} value={slots}>
-                    {formatDurationText(slots)}
+                {availableEndSlots.map((e) => (
+                  <option key={e} value={e}>
+                    {slotToTimeString(e)} ({formatDurationText(e - currentStartSlot)})
                   </option>
                 ))}
               </select>

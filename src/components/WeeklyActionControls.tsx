@@ -59,7 +59,7 @@ export const WeeklyActionControls: React.FC<WeeklyActionControlsProps> = ({
           <div className="flex items-center gap-2.5 flex-wrap justify-end">
             {/* 1주차 액션 그룹 */}
             <div className="flex items-center gap-1 bg-[#FAF9F7] p-1 rounded-xl border border-[#E5E1DA]">
-              <span className="px-1.5 text-[11px] font-bold text-[#2563EB]">1주차</span>
+              <span className="px-1.5 text-xs font-medium text-[#555]">1주차</span>
               <button
                 onClick={() => setResetConfirmTarget({ startDate: week1Start, weekName: '1주차', label: week1Label })}
                 className="px-2 py-1 bg-white hover:bg-[#FFF1F2] hover:text-[#C94A4A] text-[#555] rounded-lg border border-[#E5E1DA] font-medium transition-colors flex items-center gap-1 shadow-2xs"
@@ -93,7 +93,7 @@ export const WeeklyActionControls: React.FC<WeeklyActionControlsProps> = ({
 
             {/* 2주차 액션 그룹 */}
             <div className="flex items-center gap-1 bg-[#FAF9F7] p-1 rounded-xl border border-[#E5E1DA]">
-              <span className="px-1.5 text-[11px] font-bold text-[#7C3AED]">2주차</span>
+              <span className="px-1.5 text-xs font-medium text-[#555]">2주차</span>
               <button
                 onClick={() => setResetConfirmTarget({ startDate: week2Start, weekName: '2주차', label: week2Label })}
                 className="px-2 py-1 bg-white hover:bg-[#FFF1F2] hover:text-[#C94A4A] text-[#555] rounded-lg border border-[#E5E1DA] font-medium transition-colors flex items-center gap-1 shadow-2xs"
@@ -115,7 +115,7 @@ export const WeeklyActionControls: React.FC<WeeklyActionControlsProps> = ({
                 disabled={!copiedWeekRangeStr}
                 className={`px-2 py-1 rounded-lg border font-medium transition-colors flex items-center gap-1 shadow-2xs ${
                   copiedWeekRangeStr
-                    ? 'bg-[#7C3AED] text-white border-[#7C3AED] hover:bg-[#6D28D9]'
+                    ? 'bg-[#2563EB] text-white border-[#2563EB] hover:bg-[#1D4ED8]'
                     : 'bg-[#F5F5F5] text-[#AAA] border-[#E5E1DA] cursor-not-allowed'
                 }`}
                 title="복사한 일정을 2주차에 붙여넣기"
