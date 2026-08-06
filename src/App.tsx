@@ -168,22 +168,39 @@ export default function App() {
   }, []);
 
   const handleAuthSuccess = (docId: string, phone: string) => {
+    isRemoteUpdatingRef.current = true;
     setActiveDocId(docId);
     setCurrentUserPhone(phone);
     localStorage.setItem('lux_active_phone_docId', docId);
     localStorage.setItem('lux_active_phone', phone);
+    setTimeout(() => {
+      isRemoteUpdatingRef.current = false;
+    }, 1000);
   };
 
   const handleLogout = async () => {
+    isRemoteUpdatingRef.current = true;
+    localStorage.removeItem('lux_active_phone_docId');
+    localStorage.removeItem('lux_active_phone');
+    localStorage.removeItem(STORAGE_KEYS.PROFILE);
+    localStorage.removeItem(STORAGE_KEYS.YEARLY_ITEMS);
+    localStorage.removeItem(STORAGE_KEYS.LONG_TERM_PLANNER);
+
     await logoutUser();
-    setCurrentUser(null);
-    setCurrentUserPhone(null);
     setActiveDocId('');
+    setCurrentUserPhone(null);
+    setCurrentUser(null);
+
     setUserProfile(DEFAULT_USER);
     setItems(generateSampleData());
     setYearlyItems([]);
     setColorMap(INITIAL_COLOR_MAP);
     setDailyEvents({});
+    setLongTermPlanner(undefined);
+
+    setTimeout(() => {
+      isRemoteUpdatingRef.current = false;
+    }, 1000);
   };
 
   // Subscribe to user Firestore planner document when logged in
