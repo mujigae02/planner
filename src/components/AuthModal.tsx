@@ -70,13 +70,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         onSuccess(docId, formatPhoneNumber(phoneNumber));
         onClose();
       } else {
-        const freshDefaultData = {
-          userProfile: DEFAULT_USER,
-          items: generateSampleData(),
-          categories: INITIAL_CATEGORIES,
-          dailyEvents: {},
+        const dataToSave = {
+          userProfile: currentData.userProfile || DEFAULT_USER,
+          items: currentData.items && currentData.items.length > 0 ? currentData.items : generateSampleData(),
+          categories: currentData.categories && currentData.categories.length > 0 ? currentData.categories : INITIAL_CATEGORIES,
+          dailyEvents: currentData.dailyEvents || {},
         };
-        const { docId } = await registerWithPhone(phoneNumber, password, autoLogin, freshDefaultData);
+        const { docId } = await registerWithPhone(phoneNumber, password, autoLogin, dataToSave);
         onSuccess(docId, formatPhoneNumber(phoneNumber));
         onClose();
       }

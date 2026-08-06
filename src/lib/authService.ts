@@ -210,7 +210,7 @@ export async function registerWithPhone(
   // Save to local storage for instant offline/fast availability
   saveLocalUser(digits, { phone: formattedPhone, passHash: pass, docId });
 
-  const plannerData: UserPlannerData = {
+  const rawPlannerData = {
     userId: user?.uid || docId,
     phoneNumber: formattedPhone,
     userProfile: {
@@ -225,8 +225,10 @@ export async function registerWithPhone(
     passHash: pass,
   };
 
+  const plannerData = JSON.parse(JSON.stringify(rawPlannerData));
+
   // Asynchronously save to Firestore without blocking UI
-  withTimeout(setDoc(doc(db, 'userPlanners', docId), plannerData), 3000).catch((e) =>
+  withTimeout(setDoc(doc(db, 'userPlanners', docId), plannerData), 4000).catch((e) =>
     console.warn('Firestore setDoc background notice:', e)
   );
 
@@ -293,19 +295,21 @@ export async function saveUserDataToFirestore(
   const path = `userPlanners/${docId}`;
   try {
     const userDocRef = doc(db, 'userPlanners', docId);
-    const plannerData: Partial<UserPlannerData> = {
+    const rawData = {
       userId: auth.currentUser?.uid || docId,
       phoneNumber: formatPhoneNumber(phoneNumber),
       userProfile: data.userProfile,
-      items: data.items,
+      items: data.items || [],
       yearlyItems: data.yearlyItems || [],
-      longTermPlanner: data.longTermPlanner,
-      categories: data.categories,
-      colorMap: data.colorMap,
-      dailyEvents: data.dailyEvents,
+      longTermPlanner: data.longTermPlanner || null,
+      categories: data.categories || [],
+      colorMap: data.colorMap || {},
+      dailyEvents: data.dailyEvents || {},
       updatedAt: new Date().toISOString(),
     };
-    await setDoc(userDocRef, plannerData, { merge: true });
+    // Deep sanitize undefined values so setDoc never fails
+    const sanitizedData = JSON.parse(JSON.stringify(rawData));
+    await setDoc(userDocRef, sanitizedData, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

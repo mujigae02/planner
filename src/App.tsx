@@ -243,13 +243,15 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
+      localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
       localStorage.setItem(STORAGE_KEYS.YEARLY_ITEMS, JSON.stringify(yearlyItems));
       localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+      localStorage.setItem(STORAGE_KEYS.DAILY_EVENTS, JSON.stringify(dailyEvents));
       if (longTermPlanner) {
         localStorage.setItem(STORAGE_KEYS.LONG_TERM_PLANNER, JSON.stringify(longTermPlanner));
       }
     } catch (e) {
-      console.error('Profile/Yearly/LongTerm/Categories saving failed', e);
+      console.error('Local data saving failed', e);
     }
 
     const activeDocId = localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
