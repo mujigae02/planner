@@ -309,7 +309,7 @@ export async function saveUserDataToFirestore(
     };
     // Deep sanitize undefined values so setDoc never fails
     const sanitizedData = JSON.parse(JSON.stringify(rawData));
-    await setDoc(userDocRef, sanitizedData, { merge: true });
+    await withTimeout(setDoc(userDocRef, sanitizedData, { merge: true }), 3000);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

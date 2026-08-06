@@ -239,7 +239,7 @@ export default function App() {
       setLastSyncedAt(new Date().toLocaleTimeString());
       setTimeout(() => {
         isRemoteUpdatingRef.current = false;
-      }, 800);
+      }, 1200);
     });
 
     return () => unsubscribeDoc();
@@ -271,25 +271,26 @@ export default function App() {
       return;
     }
 
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       if (isRemoteUpdatingRef.current) return;
 
       setIsSyncing(true);
-      saveUserDataToFirestore(currentDocId, currentUserPhone || '', {
-        userProfile,
-        items,
-        yearlyItems,
-        longTermPlanner,
-        categories,
-        dailyEvents,
-      }).then(() => {
-        setIsSyncing(false);
+      try {
+        await saveUserDataToFirestore(currentDocId, currentUserPhone || '', {
+          userProfile,
+          items,
+          yearlyItems,
+          longTermPlanner,
+          categories,
+          dailyEvents,
+        });
         setLastSyncedAt(new Date().toLocaleTimeString());
-      }).catch((err) => {
+      } catch (err) {
         console.error('Firestore sync error:', err);
+      } finally {
         setIsSyncing(false);
-      });
-    }, 500);
+      }
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone, activeDocId]);
