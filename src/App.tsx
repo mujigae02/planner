@@ -39,6 +39,7 @@ export default function App() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const isRemoteUpdatingRef = useRef(false);
+  const lastSavedPayloadRef = useRef<string>('');
 
   // 1. 상태 정의 (LocalStorage / Remote)
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
@@ -202,7 +203,29 @@ export default function App() {
     const currentDocId = activeDocId || localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
     if (!currentDocId) return;
 
-    const unsubscribeDoc = subscribeToUserPlanner(currentDocId, (data) => {
+    const unsubscribeDoc = subscribeToUserPlanner(currentDocId, (data, exists) => {
+      if (!exists) {
+        // Document does not exist in Firestore yet -> Push local data to Firestore
+        const currentPayload = JSON.stringify({
+          userProfile,
+          items,
+          yearlyItems,
+          longTermPlanner,
+          categories,
+          dailyEvents,
+        });
+        lastSavedPayloadRef.current = currentPayload;
+        saveUserDataToFirestore(currentDocId, currentUserPhone || '', {
+          userProfile,
+          items,
+          yearlyItems,
+          longTermPlanner,
+          categories,
+          dailyEvents,
+        }).catch(err => console.error('Initial push error:', err));
+        return;
+      }
+
       isRemoteUpdatingRef.current = true;
       if (data.phoneNumber) {
         setCurrentUserPhone(data.phoneNumber);
@@ -216,10 +239,15 @@ export default function App() {
         setUserProfile(cleanProfile);
         try { localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(cleanProfile)); } catch {}
       }
+
+      // If Firestore has items, sync them. If Firestore has empty items but local has items, don't overwrite local with empty
       if (Array.isArray(data.items)) {
-        setItems(data.items);
-        try { localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(data.items)); } catch {}
+        if (data.items.length > 0 || items.length === 0) {
+          setItems(data.items);
+          try { localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(data.items)); } catch {}
+        }
       }
+
       if (Array.isArray(data.yearlyItems)) {
         setYearlyItems(data.yearlyItems);
         try { localStorage.setItem(STORAGE_KEYS.YEARLY_ITEMS, JSON.stringify(data.yearlyItems)); } catch {}
@@ -236,16 +264,27 @@ export default function App() {
         setDailyEvents(data.dailyEvents);
         try { localStorage.setItem(STORAGE_KEYS.DAILY_EVENTS, JSON.stringify(data.dailyEvents)); } catch {}
       }
+
+      const receivedPayload = JSON.stringify({
+        userProfile: data.userProfile || userProfile,
+        items: (Array.isArray(data.items) && (data.items.length > 0 || items.length === 0)) ? data.items : items,
+        yearlyItems: data.yearlyItems || yearlyItems,
+        longTermPlanner: data.longTermPlanner || longTermPlanner,
+        categories: data.categories || categories,
+        dailyEvents: data.dailyEvents || dailyEvents,
+      });
+      lastSavedPayloadRef.current = receivedPayload;
       setLastSyncedAt(new Date().toLocaleTimeString());
+
       setTimeout(() => {
         isRemoteUpdatingRef.current = false;
-      }, 1200);
+      }, 1500);
     });
 
     return () => unsubscribeDoc();
   }, [activeDocId, currentUser]);
 
-  // Sync data to Firestore on local changes (if logged in) with debouncing
+  // Sync data to Firestore on local changes (if logged in) with debouncing & payload check
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
@@ -260,14 +299,29 @@ export default function App() {
       console.error('Local data saving failed', e);
     }
 
-    if (isRemoteUpdatingRef.current) {
-      return;
-    }
-
     const currentDocId = activeDocId || localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
 
     if (!currentDocId) {
       setIsSyncing(false);
+      return;
+    }
+
+    const currentPayload = JSON.stringify({
+      userProfile,
+      items,
+      yearlyItems,
+      longTermPlanner,
+      categories,
+      dailyEvents,
+    });
+
+    // If payload has not changed since last saved/received, do nothing
+    if (lastSavedPayloadRef.current === currentPayload) {
+      setIsSyncing(false);
+      return;
+    }
+
+    if (isRemoteUpdatingRef.current) {
       return;
     }
 
@@ -284,13 +338,14 @@ export default function App() {
           categories,
           dailyEvents,
         });
+        lastSavedPayloadRef.current = currentPayload;
         setLastSyncedAt(new Date().toLocaleTimeString());
       } catch (err) {
         console.error('Firestore sync error:', err);
       } finally {
         setIsSyncing(false);
       }
-    }, 800);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone, activeDocId]);

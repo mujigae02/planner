@@ -309,16 +309,17 @@ export async function saveUserDataToFirestore(
     };
     // Deep sanitize undefined values so setDoc never fails
     const sanitizedData = JSON.parse(JSON.stringify(rawData));
-    await withTimeout(setDoc(userDocRef, sanitizedData, { merge: true }), 3000);
+    await setDoc(userDocRef, sanitizedData, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+    throw error;
   }
 }
 
 // Subscribe to real-time updates for logged-in user
 export function subscribeToUserPlanner(
   docId: string,
-  onData: (data: UserPlannerData) => void
+  onData: (data: UserPlannerData, exists: boolean) => void
 ) {
   if (!docId) return () => {};
   const path = `userPlanners/${docId}`;
@@ -326,15 +327,12 @@ export function subscribeToUserPlanner(
     const userDocRef = doc(db, 'userPlanners', docId);
     return onSnapshot(
       userDocRef,
-      { includeMetadataChanges: true },
       (snapshot) => {
-        // Ignore local pending writes to avoid infinite feedback loop when current user saves data
-        if (snapshot.metadata.hasPendingWrites) {
-          return;
-        }
         if (snapshot.exists()) {
           const data = snapshot.data() as UserPlannerData;
-          onData(data);
+          onData(data, true);
+        } else {
+          onData({} as UserPlannerData, false);
         }
       },
       (error) => {
