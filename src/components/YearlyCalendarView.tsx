@@ -221,7 +221,7 @@ export const YearlyCalendarView: React.FC<YearlyCalendarViewProps> = ({
 
           <button
             onClick={handleOpenAddGeneral}
-            className="px-3.5 py-1.5 rounded-full bg-[#2D2926] hover:bg-[#1A1A1A] text-white text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-full bg-[#20487C] hover:bg-[#16355C] text-white text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" />
             <span>일정 추가</span>
@@ -362,7 +362,7 @@ export const YearlyCalendarView: React.FC<YearlyCalendarViewProps> = ({
             {/* 모달 헤더 */}
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E1DA]">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#2D2926] text-white flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-[#20487C] text-white flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-[#FFD700]" />
                 </div>
                 <div>
@@ -390,12 +390,12 @@ export const YearlyCalendarView: React.FC<YearlyCalendarViewProps> = ({
                 <span>일정 내용 / 목표</span>
                 <span className="text-[#C94A4A]">*</span>
               </label>
-              <input
-                type="text"
+              <textarea
+                rows={2}
                 value={inputTitle}
                 onChange={(e) => setInputTitle(e.target.value)}
-                placeholder="예: 상반기 매출 점검, 자동차 보험 갱신, 헬스장 재등록 등"
-                className="w-full px-3 py-2 text-xs md:text-sm font-gothic font-medium border border-[#E5E1DA] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#2D2926] bg-[#FAF9F7]"
+                placeholder="예: 상반기 매출 점검, 자동차 보험 갱신, 헬스장 재등록 등&#10;(엔터 입력 시 줄바꿈 적용)"
+                className="w-full px-3 py-2 text-xs md:text-sm font-gothic font-medium border border-[#E5E1DA] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#20487C] bg-[#FAF9F7] whitespace-pre-wrap break-words resize-y min-h-[50px]"
                 autoFocus
                 required
               />
@@ -461,7 +461,7 @@ export const YearlyCalendarView: React.FC<YearlyCalendarViewProps> = ({
                         onClick={() => handleToggleMonthCheck(mNum)}
                         className={`py-1.5 text-xs rounded-lg border font-medium transition-all ${
                           isChecked
-                            ? 'bg-[#2D2926] text-white border-[#2D2926] shadow-2xs'
+                            ? 'bg-[#20487C] text-white border-[#20487C] shadow-2xs'
                             : 'bg-white text-[#8C857E] border-[#E5E1DA] hover:bg-[#F0ECE1]'
                         }`}
                       >
@@ -487,7 +487,7 @@ export const YearlyCalendarView: React.FC<YearlyCalendarViewProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-[#2D2926] hover:bg-[#1A1A1A] text-white text-xs font-bold rounded-xl shadow-2xs transition-all"
+                className="px-5 py-2 bg-[#20487C] hover:bg-[#16355C] text-white text-xs font-bold rounded-xl shadow-2xs transition-all"
               >
                 {editingItemId ? '수정 완료' : `${selectedMonths.length}개 월에 저장`}
               </button>

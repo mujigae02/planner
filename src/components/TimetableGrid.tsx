@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Calendar } from 'lucide-react';
 import { ScheduleItem, DailyEvents } from '../types';
 import { DAY_NAMES, TOTAL_SLOTS } from '../utils/constants';
-import { formatDateKey, formatKoreanDateShort, isToday } from '../utils/dateUtils';
+import { formatDateKey, formatKoreanDateShort, isToday, isRedDay, isKoreanHoliday, getKoreanHolidayName } from '../utils/dateUtils';
 
 interface TimetableGridProps {
   twoWeekDays: Date[];
@@ -102,12 +102,12 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
 
         {/* 테이블 가로 및 세로 스크롤 컨테이너 (한 번에 9시간 분량 스케줄 조회가 가능하도록 580px 세로 높이 설정) */}
         <div className="overflow-auto h-[580px] min-h-[580px] rounded-b-2xl">
-          <table className={`w-full border-collapse ${is14DayView ? 'min-w-[1100px]' : 'min-w-[650px]'}`}>
+          <table className={`w-full border-collapse ${is14DayView ? 'min-w-[1200px]' : 'min-w-[720px]'}`}>
             {/* Table Header (스크롤 시 상단 고정) */}
             <thead className="sticky top-0 z-20 bg-[#FAF9F7] border-b border-[#E5E1DA] shadow-xs">
               {/* 1행: 요일 및 날짜 */}
               <tr className="bg-[#FAF9F7] border-b border-[#E5E1DA]">
-                <th className="sticky top-0 z-20 bg-[#FAF9F7] w-12 md:w-14 p-1.5 text-center text-[11px] font-medium text-[#8C857E] font-serif-kr border-r border-[#E5E1DA]">
+                <th className="sticky top-0 z-20 bg-[#FAF9F7] w-14 md:w-16 p-1.5 text-center text-[11px] font-bold text-[#8C857E] font-gothic border-r border-[#E5E1DA]">
                   시간
                 </th>
                 {days.map((d) => {
@@ -117,19 +117,22 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                   const isSunday = dayOfWeek === 0;
                   const isSaturday = dayOfWeek === 6;
                   const isWeekend = isSunday || isSaturday;
+                  const holiday = isKoreanHoliday(d);
+                  const redDay = isRedDay(d);
+                  const holidayName = getKoreanHolidayName(d);
 
                   return (
                     <th
                       key={dateKey}
-                      style={{ width: isWeekend ? (is14DayView ? '4.16%' : '8.33%') : (is14DayView ? '8.33%' : '16.66%') }}
+                      style={{ width: isWeekend ? (is14DayView ? '6.8%' : '14%') : (is14DayView ? '7.1%' : '14.2%') }}
                       className={`sticky top-0 z-20 p-1.5 text-center border-r border-[#E5E1DA] last:border-r-0 transition-colors ${
                         today ? 'bg-[#F0FAF7]' : 'bg-[#FAF9F7]'
                       }`}
                     >
                       <div className="flex flex-col items-center">
                         <span
-                          className={`text-[11px] font-medium font-sans-kr ${
-                            isSunday
+                          className={`text-[11px] font-medium font-sans-kr flex items-center gap-1 ${
+                            redDay
                               ? 'text-[#C94A4A]'
                               : isSaturday
                               ? 'text-[#2563EB]'
@@ -142,15 +145,21 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                           className={`text-xs font-serif-kr mt-0.5 ${
                             today
                               ? 'bg-[#E3F2FD] text-[#0D47A1] px-2 py-0.5 rounded-full text-[11px] font-bold shadow-2xs border border-[#BBDEFB]'
+                              : redDay
+                              ? 'text-[#C94A4A] font-bold'
                               : isSaturday
-                              ? 'text-[#2563EB] font-normal'
-                              : isSunday
-                              ? 'text-[#C94A4A] font-normal'
+                              ? 'text-[#2563EB] font-medium'
                               : 'text-[#2D2926] font-normal'
                           }`}
+                          title={holidayName || undefined}
                         >
                           {d.getDate()}일
                         </span>
+                        {holidayName && (
+                          <span className="text-[9px] text-[#C94A4A] font-gothic font-medium truncate max-w-[60px]" title={holidayName}>
+                            {holidayName}
+                          </span>
+                        )}
                       </div>
                     </th>
                   );
@@ -209,9 +218,9 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                     } hover:bg-[#FAF9F7]/30 transition-colors`}
                   >
                     {/* 시간 축 표시 (정시에만 시간 표시) */}
-                    <td className="text-center text-[9px] font-mono font-medium text-[#8C857E] bg-[#FAF9F7] border-r border-[#E5E1DA] select-none p-0 h-3.5 leading-none">
+                    <td className="text-center bg-[#FAF9F7] border-r border-[#E5E1DA] select-none p-0 h-3.5 leading-none">
                       {isHourly && (
-                        <span className="block -mt-1.5 bg-[#FAF9F7] px-0.5 font-mono font-bold text-[9px] text-[#555]">
+                        <span className="block -mt-1.5 bg-[#FAF9F7] px-0.5 font-mono font-bold text-[11px] text-[#8C857E]">
                           {String(hourNum).padStart(2, '0')}:00
                         </span>
                       )}
@@ -251,9 +260,9 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                                 color: item.textColor || '#2D2926',
                               }}
                             >
-                              {/* 일정 제목 (고딕체 폰트 적용 및 가독성 개선) */}
+                              {/* 일정 제목 (고딕체 폰트 적용, 줄바꿈 및 너비 초과 시 자동 줄바꿈) */}
                               <h4
-                                className="font-gothic text-[11px] md:text-xs leading-tight font-medium tracking-tight break-keep whitespace-normal w-full overflow-hidden"
+                                className="font-gothic text-[11px] md:text-xs leading-snug font-medium tracking-tight break-words whitespace-pre-wrap w-full overflow-hidden"
                               >
                                 {item.title}
                               </h4>

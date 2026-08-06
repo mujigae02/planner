@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Palette, Settings } from 'lucide-react';
 import { CategoryItem } from '../types';
-import { formatDateKey } from '../utils/dateUtils';
+import { formatDateKey, isRedDay, getKoreanHolidayName } from '../utils/dateUtils';
 
 interface MonthCalendarAndCategoryProps {
   currentWeekStartDate: Date;
@@ -113,6 +113,8 @@ export const MonthCalendarAndCategory: React.FC<MonthCalendarAndCategoryProps> =
             const isToday = dateKey === todayKey;
             const isInActiveWeek = activeWeekKeys.has(dateKey);
             const dayOfWeek = cellDate.getDay();
+            const redDay = isRedDay(cellDate);
+            const holidayName = getKoreanHolidayName(cellDate);
 
             return (
               <button
@@ -125,13 +127,13 @@ export const MonthCalendarAndCategory: React.FC<MonthCalendarAndCategoryProps> =
                     ? 'bg-[#F0FAF7] text-[#0F6856] border border-[#D0EAE2] font-semibold'
                     : 'hover:bg-[#FAF9F7] text-[#2D2926]'
                 } ${
-                  !isInActiveWeek && dayOfWeek === 0
+                  !isInActiveWeek && redDay
                     ? 'text-[#C94A4A]'
                     : !isInActiveWeek && dayOfWeek === 6
                     ? 'text-[#2563EB]'
                     : ''
                 }`}
-                title={`${cellDate.getMonth() + 1}월 ${cellDate.getDate()}일 계획표 보기`}
+                title={holidayName ? `${cellDate.getMonth() + 1}월 ${cellDate.getDate()}일 (${holidayName})` : `${cellDate.getMonth() + 1}월 ${cellDate.getDate()}일 계획표 보기`}
               >
                 <span>{cellDate.getDate()}</span>
               </button>

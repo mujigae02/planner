@@ -557,7 +557,6 @@ export default function App() {
             }
             return updated;
           });
-          showToast(`총 ${groupItems.length}개의 반복 일정이 모두 수정되었습니다.`);
         } else {
           // 반복 해제: 모두 일반 일정으로 변경
           setItems((prev) =>
@@ -581,7 +580,6 @@ export default function App() {
               return it;
             })
           );
-          showToast('모든 반복 일정이 일반 일정으로 전환되었습니다.');
         }
       } else if (scope === 'convertToRecurring') {
         // 단일 일정을 반복 일정으로 새로 확장 생성 (8주간 56일)
@@ -638,7 +636,6 @@ export default function App() {
         }
 
         setItems((prev) => [...prev.filter((it) => it.id !== targetItem.id), ...newItems]);
-        showToast(`총 ${newItems.length}개의 반복 일정으로 전환되었습니다.`);
       } else {
         // 단일 항목 수정 (독립적인 단일 일정으로 개별 반영)
         setItems((prev) =>
@@ -663,7 +660,6 @@ export default function App() {
             return it;
           })
         );
-        showToast('일정이 수정되었습니다.');
       }
     } else {
       // 신규 일정 생성
@@ -704,7 +700,6 @@ export default function App() {
         }
 
         setItems((prev) => [...prev, ...newItems]);
-        showToast(`총 ${newItems.length}개의 반복 일정이 등록되었습니다.`);
       } else {
         const newItem: ScheduleItem = {
           id: `sched-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -718,7 +713,6 @@ export default function App() {
         };
 
         setItems((prev) => [...prev, newItem]);
-        showToast('새 일정이 등록되었습니다.');
       }
     }
   };
@@ -732,10 +726,8 @@ export default function App() {
       const groupItems = findRecurringGroupItems(targetItem, items);
       const groupIds = new Set(groupItems.map((it) => it.id));
       setItems((prev) => prev.filter((it) => !groupIds.has(it.id)));
-      showToast(`총 ${groupItems.length}개의 반복 일정이 한 번에 삭제되었습니다.`);
     } else {
       setItems((prev) => prev.filter((it) => it.id !== id));
-      showToast('일정이 삭제되었습니다.');
     }
   };
 

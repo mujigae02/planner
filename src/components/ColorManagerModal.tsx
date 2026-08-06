@@ -137,7 +137,7 @@ export const ColorManagerModal: React.FC<ColorManagerModalProps> = ({
 
             <button
               type="submit"
-              className="w-full py-2 bg-[#2D2926] text-white rounded-xl text-xs font-bold hover:bg-[#1A1A1A] transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+              className="w-full py-2 bg-[#20487C] text-white rounded-xl text-xs font-bold hover:bg-[#16355C] transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
             >
               <Plus className="w-4 h-4" />
               <span>카테고리 추가</span>
@@ -251,7 +251,7 @@ export const ColorManagerModal: React.FC<ColorManagerModalProps> = ({
         <div className="bg-[#FAF9F7] px-6 py-3 border-t border-[#E5E1DA] text-right">
           <button
             onClick={onClose}
-            className="px-5 py-2 bg-[#2D2926] text-white rounded-xl text-xs font-bold hover:bg-[#1A1A1A] transition-colors shadow-2xs"
+            className="px-5 py-2 bg-[#20487C] text-white rounded-xl text-xs font-bold hover:bg-[#16355C] transition-colors shadow-2xs"
           >
             확인
           </button>

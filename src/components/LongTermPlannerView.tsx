@@ -371,7 +371,7 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                             }}
                             placeholder=""
                             rows={2}
-                            className="w-full h-full min-h-[50px] max-h-[50px] p-1.5 text-xs md:text-sm font-gothic font-medium bg-transparent border border-transparent rounded-lg focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none transition-all resize-none leading-relaxed placeholder:text-[#BBB4A9] overflow-y-auto"
+                            className="w-full h-full min-h-[50px] max-h-[50px] p-1.5 text-xs md:text-sm font-gothic font-medium bg-transparent border border-transparent rounded-lg focus:bg-white focus:border-[#20487C] focus:ring-1 focus:ring-[#20487C] focus:outline-none transition-all resize-none leading-relaxed placeholder:text-[#BBB4A9] overflow-y-auto whitespace-pre-wrap break-words"
                             style={{
                               color: cellColor,
                               backgroundImage:

@@ -85,7 +85,7 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
           ) : (
             <button
               onClick={onOpenAuthModal}
-              className="px-3.5 py-1.5 rounded-full bg-[#2D2926] hover:bg-[#1A1A1A] text-white transition-all flex items-center gap-1.5 text-[11px] font-semibold shadow-2xs cursor-pointer"
+              className="px-3.5 py-1.5 rounded-full bg-[#20487C] hover:bg-[#16355C] text-white transition-all flex items-center gap-1.5 text-[11px] font-semibold shadow-2xs cursor-pointer"
             >
               <Phone className="w-3.5 h-3.5" />
               <span>전화번호 로그인 / 회원가입</span>

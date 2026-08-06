@@ -100,7 +100,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setRecurringDays(
         initialItem.recurringDays && initialItem.recurringDays.length > 0
           ? initialItem.recurringDays
-          : [1, 3, 5]
+          : []
       );
     } else {
       setTitle('');
@@ -111,7 +111,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setSelectedColor(PASTEL_COLORS[0]);
       setIsRecurring(false);
       setRecurringType('daily');
-      setRecurringDays([1, 3, 5]);
+      setRecurringDays([]);
     }
   }, [
     initialItem,
@@ -124,7 +124,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     recurringGroupItems,
   ]);
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setTitle(e.target.value);
   };
 
@@ -234,13 +234,13 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             <label className="block text-xs font-medium text-[#2D2926] mb-1">
               일정 내용 <span className="text-[#C94A4A]">*</span>
             </label>
-            <input
-              type="text"
+            <textarea
               required
+              rows={2}
               value={title}
               onChange={handleTitleChange}
-              placeholder="예: 독서, 프로젝트 회의, 운동, 전공 강의"
-              className="w-full px-4 py-3 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-base font-gothic font-medium focus:outline-none focus:ring-2 focus:ring-[#2D2926]/20 text-[#2D2926]"
+              placeholder="예: 독서, 프로젝트 회의, 운동, 전공 강의&#10;(엔터 입력 시 줄바꿈 적용)"
+              className="w-full px-4 py-2.5 rounded-xl border border-[#E5E1DA] bg-[#FAF9F7] text-sm font-gothic font-medium focus:outline-none focus:ring-2 focus:ring-[#20487C]/30 text-[#2D2926] whitespace-pre-wrap break-words resize-y min-h-[60px]"
             />
           </div>
 
@@ -519,7 +519,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-full bg-[#2D2926] text-white hover:bg-[#1A1A1A] text-xs font-medium transition-all shadow-2xs cursor-pointer"
+                  className="px-5 py-2 rounded-full bg-[#20487C] text-white hover:bg-[#16355C] text-xs font-bold transition-all shadow-2xs cursor-pointer"
                 >
                   {initialItem ? '수정 완료' : '일정 저장'}
                 </button>
