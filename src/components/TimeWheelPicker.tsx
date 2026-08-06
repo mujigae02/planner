@@ -7,6 +7,7 @@ interface TimeWheelPickerProps {
   minute: number; // 0 ~ 55 (5분 단위)
   minHour?: number;
   maxHour?: number;
+  alignRight?: boolean;
   onChange: (hour: number, minute: number) => void;
 }
 
@@ -18,6 +19,7 @@ export const TimeWheelPicker: React.FC<TimeWheelPickerProps> = ({
   minute,
   minHour = 5,
   maxHour = 24,
+  alignRight = false,
   onChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -51,9 +53,20 @@ export const TimeWheelPicker: React.FC<TimeWheelPickerProps> = ({
   const currentHourIdx = hourOptions.indexOf(hour);
   const safeHourIdx = currentHourIdx !== -1 ? currentHourIdx : 0;
 
-  // 분 인덱스 구하기
-  const currentMinIdx = MINUTE_OPTIONS.indexOf(validMinute);
-  const safeMinIdx = currentMinIdx !== -1 ? currentMinIdx : 0;
+  // 분 인덱스 구하기 (가장 가까운 5분 단위 옵션 매칭)
+  let currentMinIdx = MINUTE_OPTIONS.indexOf(validMinute);
+  if (currentMinIdx === -1) {
+    let minDiff = Infinity;
+    currentMinIdx = 0;
+    MINUTE_OPTIONS.forEach((m, idx) => {
+      const diff = Math.abs(m - validMinute);
+      if (diff < minDiff) {
+        minDiff = diff;
+        currentMinIdx = idx;
+      }
+    });
+  }
+  const safeMinIdx = currentMinIdx;
 
   // 시 변경
   const setHourByIdx = (idx: number) => {
@@ -126,7 +139,7 @@ export const TimeWheelPicker: React.FC<TimeWheelPickerProps> = ({
 
       {/* 드럼 휠 팝오버 (폭 좁고 아담하게 컴팩트 디자인) */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 z-50 w-40 bg-white border border-[#E5E1DA] rounded-xl shadow-xl p-2 animate-in fade-in zoom-in-95 duration-150">
+        <div className={`absolute top-full mt-1 z-50 w-40 bg-white border border-[#E5E1DA] rounded-xl shadow-xl p-2 animate-in fade-in zoom-in-95 duration-150 ${alignRight ? 'right-0' : 'left-0'}`}>
           <div className="flex items-center justify-between border-b border-[#E5E1DA] pb-1.5 mb-1.5">
             <span className="text-[11px] font-bold text-[#1E3A8A] font-sans-kr flex items-center gap-1">
               <Clock className="w-3 h-3 text-[#2563EB]" />

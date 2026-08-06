@@ -43,7 +43,16 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [date, setDate] = useState(defaultDate || '');
   const [startHour, setStartHour] = useState(defaultStartHour);
   const [startMinute, setStartMinute] = useState(defaultStartMinute);
-  const [durationSlots, setDurationSlots] = useState(defaultDuration);
+  const [endHour, setEndHour] = useState(() => {
+    const startTotalMin = defaultStartHour * 60 + defaultStartMinute;
+    const endTotalMin = startTotalMin + defaultDuration * 15;
+    return Math.min(24, Math.floor(endTotalMin / 60));
+  });
+  const [endMinute, setEndMinute] = useState(() => {
+    const startTotalMin = defaultStartHour * 60 + defaultStartMinute;
+    const endTotalMin = startTotalMin + defaultDuration * 15;
+    return endTotalMin % 60;
+  });
   const [selectedColor, setSelectedColor] = useState(PASTEL_COLORS[0]);
 
   // 반복 일정 설정
@@ -84,9 +93,18 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     if (initialItem) {
       setTitle(initialItem.title);
       setDate(initialItem.date);
-      setStartHour(initialItem.startHour);
-      setStartMinute(initialItem.startMinute || 0);
-      setDurationSlots(initialItem.duration || 4);
+      const sH = initialItem.startHour;
+      const sM = initialItem.startMinute || 0;
+      const dur = initialItem.duration || 4;
+      setStartHour(sH);
+      setStartMinute(sM);
+
+      const startTotalMin = sH * 60 + sM;
+      const endTotalMin = startTotalMin + Math.round(dur * 15);
+      const eH = Math.min(24, Math.floor(endTotalMin / 60));
+      const eM = eH === 24 ? 0 : endTotalMin % 60;
+      setEndHour(eH);
+      setEndMinute(eM);
 
       const matchedColor = PASTEL_COLORS.find((c) => c.bg === initialItem.color) || PASTEL_COLORS[0];
       setSelectedColor(matchedColor);
@@ -106,9 +124,19 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     } else {
       setTitle('');
       setDate(defaultDate || (twoWeekDays[0] ? twoWeekDays[0].toISOString().slice(0, 10) : ''));
-      setStartHour(defaultStartHour);
-      setStartMinute(defaultStartMinute);
-      setDurationSlots(defaultDuration);
+      const sH = defaultStartHour;
+      const sM = defaultStartMinute;
+      const dur = defaultDuration;
+      setStartHour(sH);
+      setStartMinute(sM);
+
+      const startTotalMin = sH * 60 + sM;
+      const endTotalMin = startTotalMin + Math.round(dur * 15);
+      const eH = Math.min(24, Math.floor(endTotalMin / 60));
+      const eM = eH === 24 ? 0 : endTotalMin % 60;
+      setEndHour(eH);
+      setEndMinute(eM);
+
       setSelectedColor(PASTEL_COLORS[0]);
       setIsRecurring(false);
       setRecurringType('daily');
@@ -137,16 +165,23 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     }
   };
 
-  const getSubmitData = (): Partial<ScheduleItem> => ({
-    id: initialItem?.id,
-    title: title.trim(),
-    date,
-    startHour,
-    startMinute,
-    duration: durationSlots,
-    color: selectedColor.bg,
-    textColor: selectedColor.text,
-  });
+  const getSubmitData = (): Partial<ScheduleItem> => {
+    const startTotalMin = startHour * 60 + startMinute;
+    const endTotalMin = endHour * 60 + endMinute;
+    const durMin = Math.max(5, endTotalMin - startTotalMin);
+    const durationSlots = Math.max(1, Math.round(durMin / 15));
+
+    return {
+      id: initialItem?.id,
+      title: title.trim(),
+      date,
+      startHour,
+      startMinute,
+      duration: durationSlots,
+      color: selectedColor.bg,
+      textColor: selectedColor.text,
+    };
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,40 +225,39 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 슬롯 개수 -> 읽기 쉬운 시간 표현
-  const formatDurationText = (slots: number) => {
-    const totalMinutes = slots * 15;
-    const hrs = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-    if (hrs === 0) return `${mins}분`;
-    if (mins === 0) return `${hrs}시간`;
-    return `${hrs}시간 ${mins}분`;
-  };
-
-  const startTotalMin = startHour * 60 + startMinute;
-  const currentEndTotalMin = startTotalMin + durationSlots * 15;
-  const endHour = Math.min(24, Math.floor(currentEndTotalMin / 60));
-  const endMinute = currentEndTotalMin % 60;
-
   const handleStartTimeWheelChange = (newH: number, newM: number) => {
+    const oldStartTotalMin = startHour * 60 + startMinute;
+    const oldEndTotalMin = endHour * 60 + endMinute;
+    const currentDurMin = Math.max(15, oldEndTotalMin - oldStartTotalMin);
+
     setStartHour(newH);
     setStartMinute(newM);
 
     const newStartTotalMin = newH * 60 + newM;
-    if (newStartTotalMin >= currentEndTotalMin) {
-      const newEndTotalMin = Math.min(24 * 60, newStartTotalMin + 60);
-      const durMin = newEndTotalMin - newStartTotalMin;
-      setDurationSlots(Math.max(1, Math.round(durMin / 15)));
-    } else {
-      const durMin = currentEndTotalMin - newStartTotalMin;
-      setDurationSlots(Math.max(1, Math.round(durMin / 15)));
+    let newEndTotalMin = newStartTotalMin + currentDurMin;
+    if (newEndTotalMin > 24 * 60) {
+      newEndTotalMin = 24 * 60;
     }
+
+    const newEH = Math.min(24, Math.floor(newEndTotalMin / 60));
+    const newEM = newEH === 24 ? 0 : newEndTotalMin % 60;
+    setEndHour(newEH);
+    setEndMinute(newEM);
   };
 
   const handleEndTimeWheelChange = (newH: number, newM: number) => {
-    const newEndTotalMin = newH * 60 + newM;
-    const durMin = Math.max(5, newEndTotalMin - startTotalMin);
-    setDurationSlots(Math.max(1, Math.round(durMin / 15)));
+    const startTotalMin = startHour * 60 + startMinute;
+    let newEndTotalMin = newH * 60 + newM;
+
+    if (newEndTotalMin <= startTotalMin) {
+      newEndTotalMin = Math.min(24 * 60, startTotalMin + 15);
+    }
+
+    const newEH = Math.min(24, Math.floor(newEndTotalMin / 60));
+    const newEM = newEH === 24 ? 0 : newEndTotalMin % 60;
+
+    setEndHour(newEH);
+    setEndMinute(newEM);
   };
 
   return (
@@ -296,6 +330,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
               minute={endMinute}
               minHour={startHour}
               maxHour={24}
+              alignRight
               onChange={handleEndTimeWheelChange}
             />
           </div>
