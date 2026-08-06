@@ -10,7 +10,7 @@ import { UserAccountBar } from './components/UserAccountBar';
 import { AuthModal } from './components/AuthModal';
 import { WeeklyActionControls } from './components/WeeklyActionControls';
 import { ScheduleItem, UserProfile, DailyEvents, YearlyScheduleItem, LongTermPlannerData } from './types';
-import { getMonday, getTwoWeekDays, formatDateKey, formatKoreanDateShort } from './utils/dateUtils';
+import { getMonday, getTwoWeekDays, formatDateKey, parseDateKey, formatKoreanDateShort } from './utils/dateUtils';
 import { DEFAULT_USER, INITIAL_COLOR_MAP } from './utils/constants';
 import { generateSampleData } from './utils/sampleData';
 import {
@@ -477,10 +477,31 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  // 6. 일정 저장 (자동 색상 기억 및 15분 단위 지원)
+  // 반복 일정 연관 항목 찾기 (그룹 ID 우선, 없으면 제목/시간 기반 폴백)
+  const findRecurringGroupItems = (targetItem: ScheduleItem, allItems: ScheduleItem[]): ScheduleItem[] => {
+    if (targetItem.recurringGroupId) {
+      return allItems.filter((it) => it.recurringGroupId === targetItem.recurringGroupId);
+    }
+    // 레거시 반복 일정 (groupId 미지정) 폴백
+    const matches = allItems.filter(
+      (it) =>
+        it.title.trim() === targetItem.title.trim() &&
+        it.startHour === targetItem.startHour &&
+        (it.startMinute || 0) === (targetItem.startMinute || 0) &&
+        (it.duration || 4) === (targetItem.duration || 4)
+    );
+    return matches.length > 1 ? matches : [targetItem];
+  };
+
+  // 6. 일정 저장 (자동 색상 기억, 15분 단위 및 반복 일정 처리)
   const handleSaveSchedule = (
     itemData: Partial<ScheduleItem>,
-    recurringOptions?: { isRecurring: boolean; type: 'daily' | 'weekly'; days: number[] }
+    recurringOptions?: {
+      isRecurring: boolean;
+      type: 'daily' | 'weekly';
+      days: number[];
+      updateScope?: 'single' | 'all' | 'convertToRecurring';
+    }
   ) => {
     if (!itemData.title || !itemData.date) return;
 
@@ -497,15 +518,159 @@ export default function App() {
 
     if (itemData.id) {
       // 기존 일정 수정
-      setItems((prev) =>
-        prev.map((it) => (it.id === itemData.id ? ({ ...it, ...itemData } as ScheduleItem) : it))
-      );
+      const targetItem = items.find((it) => it.id === itemData.id);
+      if (!targetItem) return;
+
+      const scope = recurringOptions?.updateScope || 'single';
+
+      if (scope === 'all' && targetItem) {
+        // 그룹 전체 수정
+        const groupItems = findRecurringGroupItems(targetItem, items);
+        const groupIds = new Set(groupItems.map((it) => it.id));
+        const groupId =
+          targetItem.recurringGroupId ||
+          `recgroup-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+        if (recurringOptions?.isRecurring) {
+          // 반복 속성 유지/수정: 그룹 내 항목 전체 내용 갱신
+          setItems((prev) => {
+            const updated = prev.map((it) => {
+              if (groupIds.has(it.id)) {
+                return {
+                  ...it,
+                  title: itemData.title!.trim(),
+                  startHour: itemData.startHour ?? it.startHour,
+                  startMinute: itemData.startMinute ?? it.startMinute,
+                  duration: itemData.duration ?? it.duration,
+                  color: itemData.color ?? it.color,
+                  textColor: itemData.textColor ?? it.textColor,
+                  isRecurring: true,
+                  recurringGroupId: groupId,
+                  recurringType: recurringOptions.type,
+                  recurringDays: recurringOptions.days,
+                };
+              }
+              return it;
+            });
+
+            // 주간 반복에서 요일 변경 시 제외된 요일 항목 정리
+            if (recurringOptions.type === 'weekly' && recurringOptions.days.length > 0) {
+              return updated.filter((it) => {
+                if (groupIds.has(it.id)) {
+                  const dayNum = parseDateKey(it.date).getDay();
+                  return recurringOptions.days.includes(dayNum);
+                }
+                return true;
+              });
+            }
+            return updated;
+          });
+          showToast(`총 ${groupItems.length}개의 반복 일정이 모두 수정되었습니다.`);
+        } else {
+          // 반복 해제: 모두 일반 일정으로 변경
+          setItems((prev) =>
+            prev.map((it) => {
+              if (groupIds.has(it.id)) {
+                const copy = { ...it };
+                delete copy.isRecurring;
+                delete copy.recurringGroupId;
+                delete copy.recurringType;
+                delete copy.recurringDays;
+                return {
+                  ...copy,
+                  title: itemData.title!.trim(),
+                  startHour: itemData.startHour ?? it.startHour,
+                  startMinute: itemData.startMinute ?? it.startMinute,
+                  duration: itemData.duration ?? it.duration,
+                  color: itemData.color ?? it.color,
+                  textColor: itemData.textColor ?? it.textColor,
+                };
+              }
+              return it;
+            })
+          );
+          showToast('모든 반복 일정이 일반 일정으로 전환되었습니다.');
+        }
+      } else if (scope === 'convertToRecurring') {
+        // 단일 일정을 반복 일정으로 새로 확장 생성 (8주간 56일)
+        const groupId = `recgroup-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const baseDateObj = parseDateKey(itemData.date);
+        const newItems: ScheduleItem[] = [];
+
+        for (let i = 0; i < 56; i++) {
+          const d = new Date(baseDateObj);
+          d.setDate(baseDateObj.getDate() + i);
+          const dateStr = formatDateKey(d);
+          const dayNum = d.getDay();
+
+          let shouldCreate = false;
+          if (recurringOptions?.type === 'daily') {
+            shouldCreate = true;
+          } else if (recurringOptions?.type === 'weekly') {
+            shouldCreate = (recurringOptions.days || []).includes(dayNum);
+          }
+
+          if (shouldCreate) {
+            if (i === 0) {
+              newItems.push({
+                ...targetItem,
+                title: itemData.title!.trim(),
+                date: dateStr,
+                startHour: itemData.startHour ?? targetItem.startHour,
+                startMinute: itemData.startMinute ?? targetItem.startMinute,
+                duration: itemData.duration ?? targetItem.duration,
+                color: itemData.color ?? targetItem.color,
+                textColor: itemData.textColor ?? targetItem.textColor,
+                isRecurring: true,
+                recurringGroupId: groupId,
+                recurringType: recurringOptions?.type,
+                recurringDays: recurringOptions?.days,
+              });
+            } else {
+              newItems.push({
+                id: `sched-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${i}`,
+                title: itemData.title!.trim(),
+                date: dateStr,
+                startHour: itemData.startHour ?? targetItem.startHour,
+                startMinute: itemData.startMinute ?? targetItem.startMinute,
+                duration: itemData.duration ?? targetItem.duration,
+                color: itemData.color ?? targetItem.color,
+                textColor: itemData.textColor ?? targetItem.textColor,
+                isRecurring: true,
+                recurringGroupId: groupId,
+                recurringType: recurringOptions?.type,
+                recurringDays: recurringOptions?.days,
+              });
+            }
+          }
+        }
+
+        setItems((prev) => [...prev.filter((it) => it.id !== targetItem.id), ...newItems]);
+        showToast(`총 ${newItems.length}개의 반복 일정으로 전환되었습니다.`);
+      } else {
+        // 단일 항목 수정
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === itemData.id
+              ? ({
+                  ...it,
+                  ...itemData,
+                  title: itemData.title!.trim(),
+                  isRecurring: recurringOptions?.isRecurring ?? it.isRecurring,
+                  recurringType: recurringOptions?.type ?? it.recurringType,
+                  recurringDays: recurringOptions?.days ?? it.recurringDays,
+                } as ScheduleItem)
+              : it
+          )
+        );
+        showToast('일정이 수정되었습니다.');
+      }
     } else {
       // 신규 일정 생성
       if (recurringOptions?.isRecurring) {
-        // 반복 일정 등록 (선택 날짜 기준 8주간 56일 동안 생성)
+        const groupId = `recgroup-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const newItems: ScheduleItem[] = [];
-        const baseDateObj = new Date(itemData.date);
+        const baseDateObj = parseDateKey(itemData.date);
 
         for (let i = 0; i < 56; i++) {
           const d = new Date(baseDateObj);
@@ -523,23 +688,27 @@ export default function App() {
           if (shouldCreate) {
             newItems.push({
               id: `sched-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${i}`,
-              title: itemData.title!,
+              title: itemData.title!.trim(),
               date: dateStr,
               startHour: itemData.startHour || 9,
               startMinute: itemData.startMinute || 0,
               duration: itemData.duration || 4,
               color: itemData.color || '#F5F5F4',
               textColor: itemData.textColor || '#2D2926',
+              isRecurring: true,
+              recurringGroupId: groupId,
+              recurringType: recurringOptions.type,
+              recurringDays: recurringOptions.days,
             });
           }
         }
 
         setItems((prev) => [...prev, ...newItems]);
+        showToast(`총 ${newItems.length}개의 반복 일정이 등록되었습니다.`);
       } else {
-        // 단일 일정 생성
         const newItem: ScheduleItem = {
           id: `sched-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          title: itemData.title!,
+          title: itemData.title!.trim(),
           date: itemData.date!,
           startHour: itemData.startHour || 9,
           startMinute: itemData.startMinute || 0,
@@ -549,13 +718,25 @@ export default function App() {
         };
 
         setItems((prev) => [...prev, newItem]);
+        showToast('새 일정이 등록되었습니다.');
       }
     }
   };
 
   // 7. 일정 삭제
-  const handleDeleteItem = (id: string) => {
-    setItems((prev) => prev.filter((it) => it.id !== id));
+  const handleDeleteItem = (id: string, deleteScope: 'single' | 'all' = 'single') => {
+    const targetItem = items.find((it) => it.id === id);
+    if (!targetItem) return;
+
+    if (deleteScope === 'all') {
+      const groupItems = findRecurringGroupItems(targetItem, items);
+      const groupIds = new Set(groupItems.map((it) => it.id));
+      setItems((prev) => prev.filter((it) => !groupIds.has(it.id)));
+      showToast(`총 ${groupItems.length}개의 반복 일정이 한 번에 삭제되었습니다.`);
+    } else {
+      setItems((prev) => prev.filter((it) => it.id !== id));
+      showToast('일정이 삭제되었습니다.');
+    }
   };
 
   // 8. 15분 단위 셀 시간 늘리기/줄이기
@@ -714,6 +895,7 @@ export default function App() {
           defaultDuration={modalDefaultDuration}
           twoWeekDays={twoWeekDays}
           colorMap={colorMap}
+          allItems={items}
           onSave={handleSaveSchedule}
           onDelete={handleDeleteItem}
         />

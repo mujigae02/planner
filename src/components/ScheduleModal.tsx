@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Trash2, Sparkles, Calendar, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Trash2, Sparkles, Calendar, RefreshCw, AlertTriangle } from 'lucide-react';
 import { ScheduleItem } from '../types';
 import { PASTEL_COLORS, HOURS, MINUTES_15, DAY_NAMES } from '../utils/constants';
 
@@ -13,11 +13,17 @@ interface ScheduleModalProps {
   defaultDuration?: number;
   twoWeekDays: Date[];
   colorMap: Record<string, { color: string; textColor: string }>;
+  allItems?: ScheduleItem[];
   onSave: (
     itemData: Partial<ScheduleItem>,
-    recurringOptions?: { isRecurring: boolean; type: 'daily' | 'weekly'; days: number[] }
+    recurringOptions?: {
+      isRecurring: boolean;
+      type: 'daily' | 'weekly';
+      days: number[];
+      updateScope?: 'single' | 'all' | 'convertToRecurring';
+    }
   ) => void;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string, deleteScope?: 'single' | 'all') => void;
 }
 
 export const ScheduleModal: React.FC<ScheduleModalProps> = ({
@@ -30,6 +36,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   defaultDuration = 4, // 기본 1시간 (4개 15분 슬롯)
   twoWeekDays,
   colorMap,
+  allItems = [],
   onSave,
   onDelete,
 }) => {
@@ -46,7 +53,28 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [recurringType, setRecurringType] = useState<'daily' | 'weekly'>('daily');
   const [recurringDays, setRecurringDays] = useState<number[]>([1, 3, 5]);
 
+  // 반복 일정 관련 작업 옵션 선택 모드 ('none' | 'delete' | 'edit')
+  const [confirmMode, setConfirmMode] = useState<'none' | 'delete' | 'edit'>('none');
+
+  // 현재 항목이 반복 일정에 속해있는지 판단
+  const isRecurringItem = useMemo(() => {
+    if (!initialItem) return false;
+    if (initialItem.isRecurring || initialItem.recurringGroupId) return true;
+    if (allItems && allItems.length > 0) {
+      const matches = allItems.filter(
+        (it) =>
+          it.title.trim() === initialItem.title.trim() &&
+          it.startHour === initialItem.startHour &&
+          (it.startMinute || 0) === (initialItem.startMinute || 0) &&
+          (it.duration || 4) === (initialItem.duration || 4)
+      );
+      return matches.length > 1;
+    }
+    return false;
+  }, [initialItem, allItems]);
+
   useEffect(() => {
+    setConfirmMode('none');
     if (initialItem) {
       setTitle(initialItem.title);
       setDate(initialItem.date);
@@ -57,6 +85,25 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       const matchedColor = PASTEL_COLORS.find((c) => c.bg === initialItem.color) || PASTEL_COLORS[0];
       setSelectedColor(matchedColor);
       setAutoMatched(false);
+
+      const isGroup =
+        initialItem.isRecurring ||
+        !!initialItem.recurringGroupId ||
+        (allItems &&
+          allItems.filter(
+            (it) =>
+              it.title.trim() === initialItem.title.trim() &&
+              it.startHour === initialItem.startHour &&
+              (it.startMinute || 0) === (initialItem.startMinute || 0)
+          ).length > 1);
+
+      setIsRecurring(Boolean(isGroup));
+      setRecurringType(initialItem.recurringType || 'daily');
+      setRecurringDays(
+        initialItem.recurringDays && initialItem.recurringDays.length > 0
+          ? initialItem.recurringDays
+          : [1, 3, 5]
+      );
     } else {
       setTitle('');
       setDate(defaultDate || (twoWeekDays[0] ? twoWeekDays[0].toISOString().slice(0, 10) : ''));
@@ -66,8 +113,19 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setSelectedColor(PASTEL_COLORS[0]);
       setAutoMatched(false);
       setIsRecurring(false);
+      setRecurringType('daily');
+      setRecurringDays([1, 3, 5]);
     }
-  }, [initialItem, defaultDate, defaultStartHour, defaultStartMinute, defaultDuration, isOpen, twoWeekDays]);
+  }, [
+    initialItem,
+    defaultDate,
+    defaultStartHour,
+    defaultStartMinute,
+    defaultDuration,
+    isOpen,
+    twoWeekDays,
+    allItems,
+  ]);
 
   // 자동 색상 매핑 체크
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,23 +152,45 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     }
   };
 
+  const getSubmitData = (): Partial<ScheduleItem> => ({
+    id: initialItem?.id,
+    title: title.trim(),
+    date,
+    startHour,
+    startMinute,
+    duration: durationSlots,
+    color: selectedColor.bg,
+    textColor: selectedColor.text,
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !date) return;
 
-    const itemData: Partial<ScheduleItem> = {
-      id: initialItem?.id,
-      title: title.trim(),
-      date,
-      startHour,
-      startMinute,
-      duration: durationSlots,
-      color: selectedColor.bg,
-      textColor: selectedColor.text,
-    };
+    if (initialItem) {
+      if (isRecurringItem || isRecurring) {
+        setConfirmMode('edit');
+        return;
+      }
+      onSave(getSubmitData(), undefined);
+      onClose();
+    } else {
+      onSave(
+        getSubmitData(),
+        isRecurring ? { isRecurring: true, type: recurringType, days: recurringDays } : undefined
+      );
+      onClose();
+    }
+  };
 
-    onSave(itemData, isRecurring ? { isRecurring: true, type: recurringType, days: recurringDays } : undefined);
-    onClose();
+  const handleDeleteClick = () => {
+    if (!initialItem) return;
+    if (isRecurringItem) {
+      setConfirmMode('delete');
+    } else {
+      onDelete?.(initialItem.id, 'single');
+      onClose();
+    }
   };
 
   if (!isOpen) return null;
@@ -138,8 +218,14 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             <h3 className="text-base md:text-lg font-serif-kr font-normal text-[#2D2926]">
               {initialItem ? '일정 수정' : '새 주간 일정 등록'}
             </h3>
+            {isRecurringItem && (
+              <span className="px-2 py-0.5 text-[11px] bg-[#E8F5E9] text-[#2E7D32] border border-[#A5D6A7] rounded-full font-semibold flex items-center gap-1">
+                <RefreshCw className="w-3 h-3" /> 반복 일정
+              </span>
+            )}
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-[#E5E1DA] text-[#8C857E] hover:text-[#2D2926] transition-colors"
           >
@@ -260,110 +346,215 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             </div>
           </div>
 
-          {/* 반복 일정 설정 */}
-          {!initialItem && (
-            <div className="p-3.5 rounded-xl bg-[#FAF9F7] border border-[#E5E1DA] space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-[#2D2926] flex items-center gap-1.5 cursor-pointer">
-                  <RefreshCw className="w-3.5 h-3.5 text-[#8C857E]" />
-                  <span>반복 일정으로 등록</span>
-                </label>
-                <input
-                  type="checkbox"
-                  checked={isRecurring}
-                  onChange={(e) => setIsRecurring(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#2D2926] accent-[#2D2926]"
-                />
-              </div>
+          {/* 반복 일정 설정 (등록 & 수정 모두 사용) */}
+          <div className="p-3.5 rounded-xl bg-[#FAF9F7] border border-[#E5E1DA] space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-[#2D2926] flex items-center gap-1.5 cursor-pointer">
+                <RefreshCw className="w-3.5 h-3.5 text-[#2E7D32]" />
+                <span>반복 일정으로 설정</span>
+              </label>
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="w-4 h-4 rounded text-[#2D2926] accent-[#2D2926] cursor-pointer"
+              />
+            </div>
 
-              {isRecurring && (
-                <div className="space-y-2 pt-2 border-t border-[#E5E1DA] animate-in fade-in duration-150">
-                  <div className="flex items-center gap-3 text-xs">
-                    <label className="flex items-center gap-1 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="recurringType"
-                        checked={recurringType === 'daily'}
-                        onChange={() => setRecurringType('daily')}
-                        className="accent-[#2D2926]"
-                      />
-                      <span>매일 반복</span>
-                    </label>
-                    <label className="flex items-center gap-1 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="recurringType"
-                        checked={recurringType === 'weekly'}
-                        onChange={() => setRecurringType('weekly')}
-                        className="accent-[#2D2926]"
-                      />
-                      <span>특정 요일 반복</span>
-                    </label>
-                  </div>
-
-                  {recurringType === 'weekly' && (
-                    <div className="flex items-center gap-1 pt-1">
-                      {DAY_NAMES.map((dayName, idx) => {
-                        const dayNum = (idx + 1) % 7;
-                        const isSelected = recurringDays.includes(dayNum);
-                        return (
-                          <button
-                            key={dayName}
-                            type="button"
-                            onClick={() => handleToggleDay(dayNum)}
-                            className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
-                              isSelected
-                                ? 'bg-[#2D2926] text-white'
-                                : 'bg-white border border-[#E5E1DA] text-[#2D2926] hover:bg-[#FAF9F7]'
-                            }`}
-                          >
-                            {dayName}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+            {isRecurring && (
+              <div className="space-y-2 pt-2 border-t border-[#E5E1DA] animate-in fade-in duration-150">
+                <div className="flex items-center gap-3 text-xs">
+                  <label className="flex items-center gap-1 cursor-pointer font-medium text-[#2D2926]">
+                    <input
+                      type="radio"
+                      name="recurringType"
+                      checked={recurringType === 'daily'}
+                      onChange={() => setRecurringType('daily')}
+                      className="accent-[#2D2926]"
+                    />
+                    <span>매일 반복</span>
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer font-medium text-[#2D2926]">
+                    <input
+                      type="radio"
+                      name="recurringType"
+                      checked={recurringType === 'weekly'}
+                      onChange={() => setRecurringType('weekly')}
+                      className="accent-[#2D2926]"
+                    />
+                    <span>특정 요일 반복</span>
+                  </label>
                 </div>
-              )}
+
+                {recurringType === 'weekly' && (
+                  <div className="flex items-center gap-1 pt-1">
+                    {DAY_NAMES.map((dayName, idx) => {
+                      const dayNum = (idx + 1) % 7;
+                      const isSelected = recurringDays.includes(dayNum);
+                      return (
+                        <button
+                          key={dayName}
+                          type="button"
+                          onClick={() => handleToggleDay(dayNum)}
+                          className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-[#2D2926] text-white'
+                              : 'bg-white border border-[#E5E1DA] text-[#2D2926] hover:bg-[#FAF9F7]'
+                          }`}
+                        >
+                          {dayName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 반복 삭제 / 수정 옵션 대화상자 */}
+          {confirmMode === 'delete' && (
+            <div className="p-4 bg-[#FFF5F5] border border-[#F8BBD0] rounded-xl space-y-2.5 animate-in fade-in duration-150">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-[#C94A4A] shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-[#C94A4A]">반복 일정 삭제 범위 선택</h4>
+                  <p className="text-[11px] text-[#666] mt-0.5">
+                    이 일정은 반복 그룹에 속해 있습니다. 삭제 범위를 선택해주세요.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (initialItem) onDelete?.(initialItem.id, 'single');
+                    setConfirmMode('none');
+                    onClose();
+                  }}
+                  className="px-3 py-2 bg-white border border-[#E5E1DA] rounded-lg text-xs font-medium text-[#2D2926] hover:bg-[#FAF9F7] transition-all cursor-pointer"
+                >
+                  이 일정만 삭제
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (initialItem) onDelete?.(initialItem.id, 'all');
+                    setConfirmMode('none');
+                    onClose();
+                  }}
+                  className="px-3 py-2 bg-[#C94A4A] text-white rounded-lg text-xs font-medium hover:bg-[#A83838] transition-all shadow-2xs cursor-pointer"
+                >
+                  모든 반복 일정 삭제
+                </button>
+              </div>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setConfirmMode('none')}
+                  className="text-[11px] text-[#8C857E] hover:underline cursor-pointer"
+                >
+                  취소
+                </button>
+              </div>
             </div>
           )}
 
-          {/* 하단 버튼 액션 */}
-          <div className="pt-3 border-t border-[#E5E1DA] flex items-center justify-between">
-            {initialItem && onDelete ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onDelete(initialItem.id);
-                  onClose();
-                }}
-                className="px-3.5 py-2 rounded-xl border border-[#F8BBD0] text-[#C94A4A] hover:bg-[#FFF8F3] text-xs font-medium transition-colors flex items-center gap-1.5"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>일정 삭제</span>
-              </button>
-            ) : (
-              <div />
-            )}
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 rounded-full border border-[#E5E1DA] text-[#2D2926] hover:bg-[#FAF9F7] text-xs font-medium transition-colors"
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-full bg-[#2D2926] text-white hover:bg-[#1A1A1A] text-xs font-medium transition-all shadow-2xs"
-              >
-                {initialItem ? '수정 완료' : '일정 저장'}
-              </button>
+          {confirmMode === 'edit' && (
+            <div className="p-4 bg-[#F0FAF7] border border-[#B2DFDB] rounded-xl space-y-2.5 animate-in fade-in duration-150">
+              <div className="flex items-start gap-2">
+                <RefreshCw className="w-4 h-4 text-[#0F6856] shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-[#0F6856]">반복 일정 수정 범위 선택</h4>
+                  <p className="text-[11px] text-[#555] mt-0.5">
+                    {initialItem && !isRecurringItem && isRecurring
+                      ? '단일 일정을 반복 일정으로 변경합니다. 적용 범위를 선택하세요.'
+                      : '이 일정은 반복 그룹에 속해 있습니다. 수정을 적용할 범위를 선택해주세요.'}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSave(
+                      getSubmitData(),
+                      isRecurring
+                        ? { isRecurring: true, type: recurringType, days: recurringDays, updateScope: 'single' }
+                        : undefined
+                    );
+                    setConfirmMode('none');
+                    onClose();
+                  }}
+                  className="px-3 py-2 bg-white border border-[#E5E1DA] rounded-lg text-xs font-medium text-[#2D2926] hover:bg-[#FAF9F7] transition-all cursor-pointer"
+                >
+                  이 일정만 수정
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSave(getSubmitData(), {
+                      isRecurring: isRecurring,
+                      type: recurringType,
+                      days: recurringDays,
+                      updateScope: isRecurringItem ? 'all' : 'convertToRecurring',
+                    });
+                    setConfirmMode('none');
+                    onClose();
+                  }}
+                  className="px-3 py-2 bg-[#0F6856] text-white rounded-lg text-xs font-medium hover:bg-[#0B4F41] transition-all shadow-2xs cursor-pointer"
+                >
+                  {isRecurringItem ? '모든 반복 일정 수정' : '반복 일정으로 전환 (8주간)'}
+                </button>
+              </div>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setConfirmMode('none')}
+                  className="text-[11px] text-[#8C857E] hover:underline cursor-pointer"
+                >
+                  취소
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* 하단 버튼 액션 (confirmMode가 active일 때는 비활성화/숨김) */}
+          {confirmMode === 'none' && (
+            <div className="pt-3 border-t border-[#E5E1DA] flex items-center justify-between">
+              {initialItem && onDelete ? (
+                <button
+                  type="button"
+                  onClick={handleDeleteClick}
+                  className="px-3.5 py-2 rounded-xl border border-[#F8BBD0] text-[#C94A4A] hover:bg-[#FFF8F3] text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>일정 삭제</span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 rounded-full border border-[#E5E1DA] text-[#2D2926] hover:bg-[#FAF9F7] text-xs font-medium transition-colors cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-full bg-[#2D2926] text-white hover:bg-[#1A1A1A] text-xs font-medium transition-all shadow-2xs cursor-pointer"
+                >
+                  {initialItem ? '수정 완료' : '일정 저장'}
+                </button>
+              </div>
+            </div>
+          )}
         </form>
       </div>
     </div>
   );
 };
+

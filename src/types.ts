@@ -12,6 +12,7 @@ export interface ScheduleItem {
   color: string; // 배경 파스텔 색상
   textColor: string; // 글자 색상
   isRecurring?: boolean;
+  recurringGroupId?: string;
   recurringType?: 'daily' | 'weekly';
   recurringDays?: number[]; // 0(일) ~ 6(토)
 }
