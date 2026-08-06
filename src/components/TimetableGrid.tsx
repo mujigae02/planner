@@ -49,7 +49,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
   const currentBaseMonday = baseMonday || twoWeekDays[0] || new Date();
   const continuousDays = getContinuousDays(currentBaseMonday, 26, 26);
 
-  // baseMonday 변경 시 연속 보기 가로 스크롤을 해당 기준 주 위치(월요일)로 정확하고 부드럽게 이동
+  // baseMonday 변경 시 연속 보기 가로 스크롤을 해당 기준 주 위치(월요일)가 고정 시간축 바로 옆에 오도록 정확하고 부드럽게 이동
   useEffect(() => {
     if (viewMode === 'twoWeekHorizontal' && scrollContainerRef.current) {
       const timer = setTimeout(() => {
@@ -57,11 +57,16 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
         const targetCol = document.getElementById(`col-${targetKey}`);
         if (targetCol && scrollContainerRef.current) {
           const container = scrollContainerRef.current;
+          const containerRect = container.getBoundingClientRect();
+          const targetRect = targetCol.getBoundingClientRect();
           const timeTh = container.querySelector('th');
-          const timeThWidth = timeTh ? timeTh.offsetWidth : 60;
-          const colLeft = targetCol.offsetLeft - timeThWidth;
+          const timeThWidth = timeTh ? timeTh.getBoundingClientRect().width : 60;
+
+          const delta = targetRect.left - (containerRect.left + timeThWidth);
+          const newScrollLeft = container.scrollLeft + delta;
+
           container.scrollTo({
-            left: Math.max(0, colLeft),
+            left: Math.max(0, newScrollLeft),
             behavior: 'smooth',
           });
         }
@@ -154,7 +159,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
             <thead>
               {/* 1행: 요일 및 날짜 (top-0 sticky) */}
               <tr className="bg-[#FAF9F7]">
-                <th className="sticky top-0 left-0 z-50 bg-[#FAF9F7] w-14 md:w-16 h-[46px] p-1 text-center text-xs font-bold text-[#8C857E] font-gothic border-r border-b border-[#E5E1DA] shadow-2xs">
+                <th className="sticky top-0 left-0 z-50 bg-[#FAF9F7] w-14 md:w-16 h-[54px] min-h-[54px] p-1 text-center text-xs font-bold text-[#8C857E] font-gothic border-r border-b border-[#E5E1DA] shadow-2xs">
                   시간
                 </th>
                 {days.map((d) => {
@@ -171,13 +176,13 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                       key={dateKey}
                       id={`col-${dateKey}`}
                       style={{ width: isContinuous ? `calc((100% - 60px) / 14)` : undefined, minWidth: isContinuous ? '80px' : undefined }}
-                      className={`sticky top-0 z-30 h-[46px] p-1 text-center border-r border-b border-[#E5E1DA] transition-colors ${
+                      className={`sticky top-0 z-30 h-[54px] min-h-[54px] p-1 text-center border-r border-b border-[#E5E1DA] transition-colors ${
                         today ? 'bg-[#F0FAF7]' : 'bg-[#FAF9F7]'
                       }`}
                     >
-                      <div className="flex flex-col items-center justify-center">
+                      <div className="flex flex-col items-center justify-center h-full leading-tight">
                         <span
-                          className={`text-xs font-bold font-sans-kr flex items-center gap-1 ${
+                          className={`text-xs font-bold font-sans-kr flex items-center gap-1 leading-tight ${
                             redDay
                               ? 'text-[#C94A4A]'
                               : isSaturday
@@ -188,7 +193,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                           {DAY_NAMES[(dayOfWeek + 6) % 7]}요일
                         </span>
                         <span
-                          className={`text-xs font-serif-kr mt-0.5 ${
+                          className={`text-xs font-serif-kr mt-0.5 leading-tight ${
                             today
                               ? 'bg-[#E3F2FD] text-[#0D47A1] px-2 py-0.5 rounded-full text-[11px] font-bold shadow-2xs border border-[#BBDEFB]'
                               : redDay
@@ -202,7 +207,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                           {d.getMonth() + 1}.{d.getDate()}
                         </span>
                         {holidayName && (
-                          <span className="text-[9px] text-[#C94A4A] font-gothic font-medium truncate max-w-[70px]" title={holidayName}>
+                          <span className="text-[9px] text-[#C94A4A] font-gothic font-medium truncate max-w-[70px] mt-0.5 leading-tight" title={holidayName}>
                             {holidayName}
                           </span>
                         )}
@@ -212,9 +217,9 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                 })}
               </tr>
 
-              {/* 2행: 그날의 주요 행사 기록 행 (top-[46px] sticky) */}
+              {/* 2행: 그날의 주요 행사 기록 행 (top-[54px] sticky) */}
               <tr className="bg-[#FAF9F7]">
-                <th className="sticky top-[46px] left-0 z-50 bg-[#FAF9F7] w-14 md:w-16 h-[34px] p-1 text-center border-r border-b border-[#E5E1DA] shadow-2xs">
+                <th className="sticky top-[54px] left-0 z-50 bg-[#FAF9F7] w-14 md:w-16 h-[34px] p-1 text-center border-r border-b border-[#E5E1DA] shadow-2xs">
                   <span className="text-[11px] text-[#7C6F64] font-bold whitespace-nowrap">주요 행사</span>
                 </th>
                 {days.map((d) => {
@@ -225,7 +230,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                   return (
                     <th
                       key={`event-${dateKey}`}
-                      className={`sticky top-[46px] z-30 h-[34px] p-1 border-r border-b border-[#E5E1DA] font-normal transition-colors ${
+                      className={`sticky top-[54px] z-30 h-[34px] p-1 border-r border-b border-[#E5E1DA] font-normal transition-colors ${
                         today ? 'bg-[#F0FAF7]' : 'bg-[#FAF9F7]'
                       }`}
                     >
@@ -251,6 +256,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
             <tbody>
               {Array.from({ length: TOTAL_SLOTS }, (_, s) => {
                 const isHourly = s % 4 === 0;
+                const isHourEnd = (s + 1) % 4 === 0;
                 const hourNum = Math.floor(s / 4) + 5;
 
                 return (
@@ -260,10 +266,10 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                   >
                     {/* 시간 축 표시 (정시에만 시간 표시) - sticky left-0 z-20 align-top */}
                     <td className={`sticky left-0 z-20 bg-[#FAF9F7] text-center align-top border-r border-[#E5E1DA] select-none p-0 h-3.5 leading-none shadow-2xs ${
-                      isHourly ? 'border-b border-b-[#D5D1CA]' : 'border-b border-b-[#E5E1DA]/30'
+                      isHourEnd ? 'border-b border-b-[#D5D1CA]' : 'border-b border-b-[#E5E1DA]/30'
                     }`}>
                       {isHourly && (
-                        <span className="block pt-0.5 bg-[#FAF9F7] px-0.5 font-mono font-bold text-[11px] text-[#8C857E] leading-none">
+                        <span className="block pt-0.5 px-0.5 font-mono font-bold text-[10px] text-[#8C857E] leading-none">
                           {String(hourNum).padStart(2, '0')}:00
                         </span>
                       )}
@@ -321,7 +327,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                           onMouseUp={handleMouseUpSlot}
                           onClick={() => !dragStart && onSelectSlotToCreate(dateKey, Math.floor(s / 4) + 5, (s % 4) * 15, 4)}
                           className={`p-0 border-r border-[#E5E1DA] h-3.5 cursor-pointer timetable-cell transition-colors select-none ${
-                            isHourly ? 'border-b border-b-[#D5D1CA]' : 'border-b border-b-[#E5E1DA]/30'
+                            isHourEnd ? 'border-b border-b-[#D5D1CA]' : 'border-b border-b-[#E5E1DA]/30'
                           } ${isSelectedInDrag ? 'bg-[#E3F2FD] border-2 border-[#0D47A1]' : 'hover:bg-[#F8F7F4]'}`}
                         />
                       );
