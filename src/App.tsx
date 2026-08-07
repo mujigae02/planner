@@ -129,6 +129,7 @@ export default function App() {
   const [modalDefaultDuration, setModalDefaultDuration] = useState<number>(4); // 4 = 1시간
 
   const [activeDocId, setActiveDocId] = useState<string>(() => localStorage.getItem('lux_active_phone_docId') || '');
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   // 상단 알림 메시지 토스트 state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -140,7 +141,7 @@ export default function App() {
     }, 3500);
   };
 
-  // Auth Listener & Realtime Firestore Sync
+  // Auth Listener & Realtime Firestore Sync with Persistent Session Restoration
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -171,6 +172,7 @@ export default function App() {
           setActiveDocId('');
         }
       }
+      setIsAuthLoading(false);
     });
     return () => unsubscribeAuth();
   }, []);
@@ -213,7 +215,7 @@ export default function App() {
     setCurrentUser(null);
 
     setUserProfile(DEFAULT_USER);
-    setItems(generateSampleData());
+    setItems([]);
     setYearlyItems([]);
     setCategories(INITIAL_CATEGORIES);
     setDailyEvents({});
@@ -768,6 +770,20 @@ export default function App() {
       setIsSyncing(false);
     }
   };
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8F7F4] flex flex-col items-center justify-center p-6 font-sans-kr text-[#2D2926]">
+        <div className="flex flex-col items-center gap-4 p-8 bg-white/90 rounded-3xl border border-[#E5E1DA] shadow-lg backdrop-blur-xs max-w-sm w-full text-center">
+          <div className="w-10 h-10 border-3 border-[#20487C] border-t-transparent rounded-full animate-spin" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-[#2D2926]">로그인 세션 확인 중</h3>
+            <p className="text-xs text-[#777]">Firebase 인증 상태를 확인하고 있습니다...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F7F4] font-sans-kr text-[#2D2926]">

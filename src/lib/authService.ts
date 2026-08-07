@@ -2,6 +2,8 @@ import {
   signOut,
   onAuthStateChanged,
   signInWithPopup,
+  setPersistence,
+  browserLocalPersistence,
   User,
 } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -36,6 +38,9 @@ export async function loginWithGoogleSocial(initialData?: {
   accountName: string;
   userInfo: { name: string; email: string; avatarUrl: string };
 }> {
+  // Ensure browser local persistence is explicitly set before auth popup
+  await setPersistence(auth, browserLocalPersistence).catch(() => {});
+
   // Execute real OAuth popup with GoogleAuthProvider
   const result = await signInWithPopup(auth, googleProvider);
   const user = result.user;

@@ -12,7 +12,7 @@
  */
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, Auth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
 import defaultConfig from '../../firebase-applet-config.json';
 
@@ -52,6 +52,12 @@ try {
 }
 
 export const auth: Auth = getAuth(app);
+
+// Explicitly set browser local persistence to maintain user session across tabs / restarts
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn('Firebase setPersistence notice:', err);
+});
+
 export const db: Firestore = firebaseConfig.firestoreDatabaseId
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
