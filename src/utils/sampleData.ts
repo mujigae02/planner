@@ -2,41 +2,7 @@ import { ScheduleItem } from '../types';
 import { formatDateKey, getMonday } from './dateUtils';
 
 export function generateSampleData(): ScheduleItem[] {
-  const today = new Date();
-  const startMonday = getMonday(today);
-
-  // 날짜 계산 헬퍼
-  const addDays = (days: number) => {
-    const d = new Date(startMonday);
-    d.setDate(startMonday.getDate() + days);
-    return formatDateKey(d);
-  };
-
-  const day0 = addDays(0); // 월요일 (Week 1)
-  const day1 = addDays(1); // 화요일
-
-  return [
-    {
-      id: 'sample-1',
-      title: '독서 및 명상',
-      date: day0,
-      startHour: 6,
-      startMinute: 0,
-      duration: 8, // 8개 슬롯 = 2시간
-      color: '#F3E8FF',
-      textColor: '#6B21A8',
-    },
-    {
-      id: 'sample-2',
-      title: '업무 프로젝트',
-      date: day0,
-      startHour: 9,
-      startMinute: 0,
-      duration: 12, // 12개 슬롯 = 3시간
-      color: '#E3F2FD',
-      textColor: '#0D47A1',
-    },
-  ];
+  return [];
 }
 
 export function generateSampleDailyEvents(): Record<string, string> {

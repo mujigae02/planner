@@ -66,20 +66,15 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEYS.ITEMS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Keep user items and only sample-1, sample-2
-          const filtered = parsed.filter(item => {
-            if (item.id.startsWith('sample-')) {
-              return item.id === 'sample-1' || item.id === 'sample-2';
-            }
-            return true;
-          });
+        if (Array.isArray(parsed)) {
+          // Filter out any sample items
+          const filtered = parsed.filter(item => !item.id.startsWith('sample-'));
           return filtered;
         }
       }
-      return generateSampleData();
+      return [];
     } catch {
-      return generateSampleData();
+      return [];
     }
   });
 
@@ -149,25 +144,56 @@ export default function App() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
-      const storedPhone = localStorage.getItem('lux_active_phone');
-      const storedDocId = localStorage.getItem('lux_active_phone_docId');
-      if (storedPhone && storedDocId) {
-        setCurrentUserPhone(storedPhone);
-        setActiveDocId(storedDocId);
+      if (user) {
+        const docId = user.uid;
+        const accountName = user.email
+          ? `${user.displayName || user.email.split('@')[0]} (${user.email})`
+          : user.displayName || 'Google 계정';
+
+        setCurrentUserPhone(accountName);
+        setActiveDocId(docId);
+        localStorage.setItem('lux_active_phone_docId', docId);
+        localStorage.setItem('lux_active_phone', accountName);
+
+        setUserProfile((prev) => ({
+          ...prev,
+          name: user.displayName || prev.name,
+          avatarUrl: user.photoURL || prev.avatarUrl || '',
+        }));
       } else {
-        setCurrentUserPhone(null);
-        setActiveDocId('');
+        const storedPhone = localStorage.getItem('lux_active_phone');
+        const storedDocId = localStorage.getItem('lux_active_phone_docId');
+        if (storedPhone && storedDocId) {
+          setCurrentUserPhone(storedPhone);
+          setActiveDocId(storedDocId);
+        } else {
+          setCurrentUserPhone(null);
+          setActiveDocId('');
+        }
       }
     });
     return () => unsubscribeAuth();
   }, []);
 
-  const handleAuthSuccess = (docId: string, phone: string) => {
+  const handleAuthSuccess = (
+    docId: string,
+    phone: string,
+    userInfo?: { name: string; email: string; avatarUrl: string }
+  ) => {
     isRemoteUpdatingRef.current = true;
     setActiveDocId(docId);
     setCurrentUserPhone(phone);
     localStorage.setItem('lux_active_phone_docId', docId);
     localStorage.setItem('lux_active_phone', phone);
+
+    if (userInfo) {
+      setUserProfile((prev) => ({
+        ...prev,
+        name: userInfo.name || prev.name,
+        avatarUrl: userInfo.avatarUrl || prev.avatarUrl || '',
+      }));
+    }
+
     setTimeout(() => {
       isRemoteUpdatingRef.current = false;
     }, 1000);
@@ -748,6 +774,7 @@ export default function App() {
       {/* 전화번호 로그인 & 실시간 동기화 상태 바 */}
       <UserAccountBar
         currentUserPhone={currentUserPhone}
+        currentUserAvatar={userProfile?.avatarUrl}
         isSyncing={isSyncing}
         lastSyncedAt={lastSyncedAt}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}

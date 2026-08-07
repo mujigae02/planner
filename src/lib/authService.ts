@@ -1,38 +1,14 @@
 import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signInAnonymously,
   signOut,
-  setPersistence,
-  browserLocalPersistence,
-  browserSessionPersistence,
   onAuthStateChanged,
-  GoogleAuthProvider,
-  OAuthProvider,
   signInWithPopup,
   User,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db, googleProvider } from './firebase';
 import { ScheduleItem, UserProfile, DailyEvents, YearlyScheduleItem, LongTermPlannerData, CategoryItem } from '../types';
 
 export { auth, db };
-
-// Helper to convert phone or social account to synthetic auth email
-export function formatPhoneToEmail(phone: string): string {
-  const digits = phone.replace(/[^a-zA-Z0-9]/g, '');
-  return `user_${digits || 'default'}@lifeplanner.app`;
-}
-
-export function formatPhoneNumber(phone: string): string {
-  const digits = phone.replace(/[^0-9]/g, '');
-  if (digits.length === 11) {
-    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-  } else if (digits.length === 10) {
-    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-  }
-  return phone;
-}
 
 export interface UserPlannerData {
   userId: string;
@@ -45,85 +21,45 @@ export interface UserPlannerData {
   colorMap?: Record<string, { color: string; textColor: string }>;
   dailyEvents: DailyEvents;
   updatedAt: string;
-  passHash?: string;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number = 2500): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT')), ms)
-    ),
-  ]);
-}
+// Real Google OAuth Authentication Handler using Firebase signInWithPopup
+export async function loginWithGoogleSocial(initialData?: {
+  userProfile: UserProfile;
+  items: ScheduleItem[];
+  categories?: CategoryItem[];
+  colorMap?: Record<string, { color: string; textColor: string }>;
+  dailyEvents: DailyEvents;
+}): Promise<{
+  user: User;
+  docId: string;
+  accountName: string;
+  userInfo: { name: string; email: string; avatarUrl: string };
+}> {
+  // Execute real OAuth popup with GoogleAuthProvider
+  const result = await signInWithPopup(auth, googleProvider);
+  const user = result.user;
 
-// Social Authentication Handler (Google, Naver, Kakao, Apple)
-export async function loginWithSocial(
-  providerType: 'google' | 'naver' | 'kakao' | 'apple',
-  accountIdentifier?: string,
-  initialData?: {
-    userProfile: UserProfile;
-    items: ScheduleItem[];
-    categories?: CategoryItem[];
-    colorMap?: Record<string, { color: string; textColor: string }>;
-    dailyEvents: DailyEvents;
-  }
-): Promise<{ user: User | null; docId: string; accountName: string }> {
-  let docId = '';
-  let accountName = '';
-  let user: User | null = null;
-
-  const sanitizeId = (str: string) => str.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
-
-  if (providerType === 'google') {
-    try {
-      const gProvider = new GoogleAuthProvider();
-      const res = await signInWithPopup(auth, gProvider);
-      user = res.user;
-      docId = user.uid;
-      accountName = user.email ? `Google (${user.email})` : `Google (${user.displayName || '사용자'})`;
-    } catch (e: any) {
-      console.warn('Google popup auth fallback:', e?.message);
-      const cleanId = accountIdentifier ? sanitizeId(accountIdentifier) : 'user';
-      docId = `google_${cleanId}`;
-      accountName = accountIdentifier ? `Google (${accountIdentifier})` : 'Google 계정';
-    }
-  } else if (providerType === 'apple') {
-    try {
-      const appleProvider = new OAuthProvider('apple.com');
-      const res = await signInWithPopup(auth, appleProvider);
-      user = res.user;
-      docId = user.uid;
-      accountName = user.email ? `Apple (${user.email})` : `Apple (${user.displayName || '사용자'})`;
-    } catch (e: any) {
-      console.warn('Apple popup auth fallback:', e?.message);
-      const cleanId = accountIdentifier ? sanitizeId(accountIdentifier) : 'user';
-      docId = `apple_${cleanId}`;
-      accountName = accountIdentifier ? `Apple (${accountIdentifier})` : 'Apple 계정';
-    }
-  } else if (providerType === 'kakao') {
-    const cleanId = accountIdentifier ? sanitizeId(accountIdentifier) : 'user';
-    docId = `kakao_${cleanId}`;
-    accountName = accountIdentifier ? `카카오 (${accountIdentifier})` : '카카오 계정';
-  } else if (providerType === 'naver') {
-    const cleanId = accountIdentifier ? sanitizeId(accountIdentifier) : 'user';
-    docId = `naver_${cleanId}`;
-    accountName = accountIdentifier ? `네이버 (${accountIdentifier})` : '네이버 계정';
-  }
-
-  if (!docId) {
-    docId = `social_${Date.now()}`;
-    accountName = '소셜 계정';
-  }
+  const docId = user.uid;
+  const accountName = user.email || user.displayName || 'Google 계정';
+  const userInfo = {
+    name: user.displayName || user.email?.split('@')[0] || 'Google 사용자',
+    email: user.email || '',
+    avatarUrl: user.photoURL || '',
+  };
 
   localStorage.setItem('lux_active_phone_docId', docId);
   localStorage.setItem('lux_active_phone', accountName);
 
   if (initialData) {
     const rawPlannerData = {
-      userId: user?.uid || docId,
+      userId: user.uid,
       phoneNumber: accountName,
-      userProfile: initialData.userProfile || {},
+      userProfile: {
+        ...initialData.userProfile,
+        name: userInfo.name,
+        avatarUrl: userInfo.avatarUrl || initialData.userProfile?.avatarUrl || '',
+      },
       items: initialData.items || [],
       categories: initialData.categories || [],
       colorMap: initialData.colorMap || {},
@@ -136,26 +72,22 @@ export async function loginWithSocial(
     );
   }
 
-  return { user, docId, accountName };
+  return { user, docId, accountName, userInfo };
 }
 
-// Backward-compatible phone auth wrappers
-export async function loginWithPhone(
-  phone: string,
-  pass: string,
-  autoLogin: boolean
-): Promise<{ user: User | null; docId: string }> {
-  return loginWithSocial('google', phone);
-}
-
-export async function registerWithPhone(
-  phone: string,
-  pass: string,
-  autoLogin: boolean,
-  initialData: any
-): Promise<{ user: User | null; docId: string }> {
-  const result = await loginWithSocial('google', phone, initialData);
-  return { user: result.user, docId: result.docId };
+// Backward compatible wrapper
+export async function loginWithSocial(
+  providerType: 'google' | 'naver' | 'kakao' | 'apple',
+  accountIdentifier?: string,
+  initialData?: any
+): Promise<{ user: User | null; docId: string; accountName: string; userInfo?: { name: string; email: string; avatarUrl: string } }> {
+  if (providerType === 'google') {
+    const res = await loginWithGoogleSocial(initialData);
+    return { user: res.user, docId: res.docId, accountName: res.accountName, userInfo: res.userInfo };
+  }
+  // Fallback handler if needed
+  const res = await loginWithGoogleSocial(initialData);
+  return { user: res.user, docId: res.docId, accountName: res.accountName, userInfo: res.userInfo };
 }
 
 export enum OperationType {
@@ -264,7 +196,7 @@ export function subscribeToUserPlanner(
   }
 }
 
-// Logout
+// Real Firebase Logout
 export async function logoutUser() {
   localStorage.removeItem('lux_active_phone_docId');
   localStorage.removeItem('lux_active_phone');
@@ -276,5 +208,6 @@ export async function logoutUser() {
 }
 
 export { onAuthStateChanged };
+
 
 

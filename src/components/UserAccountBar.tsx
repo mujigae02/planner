@@ -2,7 +2,8 @@ import React from 'react';
 import { User, RefreshCw, LogOut, Cloud } from 'lucide-react';
 
 interface UserAccountBarProps {
-  currentUserPhone: string | null;
+  currentUserPhone: string | null; // Account email or name
+  currentUserAvatar?: string;
   isSyncing: boolean;
   lastSyncedAt: string | null;
   onOpenAuthModal: () => void;
@@ -12,6 +13,7 @@ interface UserAccountBarProps {
 
 export const UserAccountBar: React.FC<UserAccountBarProps> = ({
   currentUserPhone,
+  currentUserAvatar,
   isSyncing,
   lastSyncedAt,
   onOpenAuthModal,
@@ -25,8 +27,16 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
         <div className="flex items-center gap-2">
           {currentUserPhone ? (
             <div className="flex items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#E8F5E9] border border-[#C8E6C9] rounded-full font-semibold text-[#2E7D32]">
-                <User className="w-3.5 h-3.5 text-[#2E7D32]" />
+              <span className="inline-flex items-center gap-2 px-3 py-1 bg-[#E8F5E9] border border-[#C8E6C9] rounded-full font-semibold text-[#2E7D32]">
+                {currentUserAvatar ? (
+                  <img
+                    src={currentUserAvatar}
+                    alt="Google Profile"
+                    className="w-4 h-4 rounded-full object-cover shrink-0"
+                  />
+                ) : (
+                  <User className="w-3.5 h-3.5 text-[#2E7D32]" />
+                )}
                 <span>{currentUserPhone}</span>
               </span>
 
@@ -55,7 +65,7 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
                 비로그인 (단말기 임시 저장)
               </span>
               <span className="hidden sm:inline text-[11px] text-[#777]">
-                구글, 네이버, 카카오, 애플 계정으로 로그인하면 스마트폰과 PC 간 데이터가 실시간 동기화됩니다.
+                Google 계정으로 로그인하면 스마트폰과 PC 간 데이터가 실시간 동기화됩니다.
               </span>
             </div>
           )}
@@ -78,7 +88,7 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
               className="px-3.5 py-1.5 rounded-full bg-[#20487C] hover:bg-[#16355C] text-white transition-all flex items-center gap-1.5 text-[11px] font-semibold shadow-2xs cursor-pointer"
             >
               <Cloud className="w-3.5 h-3.5" />
-              <span>소셜 계정 로그인 / 동기화</span>
+              <span>Google 로그인 / 동기화</span>
             </button>
           )}
         </div>
@@ -86,4 +96,5 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
     </div>
   );
 };
+
 
