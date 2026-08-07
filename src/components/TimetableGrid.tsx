@@ -45,9 +45,24 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
   const week1Days = twoWeekDays.slice(0, 7);
   const week2Days = twoWeekDays.slice(7, 14);
 
-  // 연속 보기용 날짜 (기준 월요일 전 26주, 후 26주 = 총 53주 / 약 1년)
+  // 연속 보기용 날짜 (기준 월요일 전 4주, 후 4주 = 총 9주 / 약 2개월)
   const currentBaseMonday = baseMonday || twoWeekDays[0] || new Date();
-  const continuousDays = getContinuousDays(currentBaseMonday, 26, 26);
+  const continuousDays = React.useMemo(
+    () => getContinuousDays(currentBaseMonday, 4, 4),
+    [currentBaseMonday]
+  );
+
+  // 날짜별 일정 맵 (O(1) 조회를 위한 메모이제이션)
+  const itemsByDate = React.useMemo(() => {
+    const map: Record<string, ScheduleItem[]> = {};
+    items.forEach((item) => {
+      if (!map[item.date]) {
+        map[item.date] = [];
+      }
+      map[item.date].push(item);
+    });
+    return map;
+  }, [items]);
 
   // baseMonday 변경 시 연속 보기 가로 스크롤을 해당 기준 주 위치(월요일)가 고정 시간축 바로 옆에 오도록 정확하고 부드럽게 이동
   useEffect(() => {
@@ -259,7 +274,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                         s >= Math.min(dragStart.slot, dragCurrent) &&
                         s <= Math.max(dragStart.slot, dragCurrent);
 
-                      const dayItems = items.filter((item) => item.date === dateKey);
+                      const dayItems = s === 0 ? (itemsByDate[dateKey] || []) : null;
 
                       return (
                         <td
@@ -273,7 +288,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                           } ${isSelectedInDrag ? 'bg-[#E3F2FD] border-2 border-[#0D47A1]' : 'hover:bg-[#F8F7F4]'}`}
                         >
                           {/* s === 0 (첫 15분 슬롯 행)에서 해당 요일의 모든 일정 5분 단위 오버레이 배치 */}
-                          {s === 0 && (
+                          {s === 0 && dayItems && (
                             <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none z-10 overflow-visible">
                               {dayItems.map((item) => {
                                 const startMin = (item.startHour - 5) * 60 + (item.startMinute || 0);
