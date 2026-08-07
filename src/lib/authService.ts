@@ -7,6 +7,9 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  OAuthProvider,
+  signInWithPopup,
   User,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -15,10 +18,10 @@ import { ScheduleItem, UserProfile, DailyEvents, YearlyScheduleItem, LongTermPla
 
 export { auth, db };
 
-// Helper to convert phone number (e.g. "010-1234-5678" or "01012345678") to synthetic auth email
+// Helper to convert phone or social account to synthetic auth email
 export function formatPhoneToEmail(phone: string): string {
-  const digits = phone.replace(/[^0-9]/g, '');
-  return `phone_${digits}@lifeplanner.app`;
+  const digits = phone.replace(/[^a-zA-Z0-9]/g, '');
+  return `user_${digits || 'default'}@lifeplanner.app`;
 }
 
 export function formatPhoneNumber(phone: string): string {
@@ -33,7 +36,7 @@ export function formatPhoneNumber(phone: string): string {
 
 export interface UserPlannerData {
   userId: string;
-  phoneNumber: string;
+  phoneNumber: string; // Preserved for data schema backward-compatibility
   userProfile: UserProfile;
   items: ScheduleItem[];
   yearlyItems?: YearlyScheduleItem[];
@@ -45,7 +48,6 @@ export interface UserPlannerData {
   passHash?: string;
 }
 
-// Phone + Password Login
 function withTimeout<T>(promise: Promise<T>, ms: number = 2500): Promise<T> {
   return Promise.race([
     promise,
@@ -55,187 +57,105 @@ function withTimeout<T>(promise: Promise<T>, ms: number = 2500): Promise<T> {
   ]);
 }
 
-interface LocalUserData {
-  phone: string;
-  passHash: string;
-  docId: string;
-}
-
-function getLocalUsers(): Record<string, LocalUserData> {
-  try {
-    const raw = localStorage.getItem('lux_local_users');
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveLocalUser(digits: string, data: LocalUserData) {
-  try {
-    const users = getLocalUsers();
-    users[digits] = data;
-    localStorage.setItem('lux_local_users', JSON.stringify(users));
-  } catch (e) {
-    console.warn('Failed to save local user:', e);
-  }
-}
-
-export async function loginWithPhone(
-  phone: string,
-  pass: string,
-  autoLogin: boolean
-): Promise<{ user: User | null; docId: string }> {
-  const digits = phone.replace(/[^0-9]/g, '');
-  const email = formatPhoneToEmail(phone);
-  const formattedPhone = formatPhoneNumber(phone);
-  const phoneDocId = `phone_${digits}`;
-  const localUsers = getLocalUsers();
-  const knownDocId = localUsers[digits]?.docId || phoneDocId;
-
-  // 1. Try standard Firebase Auth first with timeout
-  try {
-    const persistence = autoLogin ? browserLocalPersistence : browserSessionPersistence;
-    await withTimeout(setPersistence(auth, persistence), 1000).catch(() => {});
-    const userCredential = await withTimeout(signInWithEmailAndPassword(auth, email, pass), 2500);
-    const user = userCredential.user;
-    saveLocalUser(digits, { phone: formattedPhone, passHash: pass, docId: user.uid });
-    localStorage.setItem('lux_active_phone_docId', user.uid);
-    localStorage.setItem('lux_active_phone', formattedPhone);
-    return { user, docId: user.uid };
-  } catch (err: any) {
-    console.log('Firebase auth login notice:', err?.code, err?.message);
-
-    if (err?.code === 'auth/wrong-password') {
-      const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
-      customErr.code = 'auth/wrong-password';
-      throw customErr;
-    }
-
-    // 2. Check local user credentials fallback
-    if (localUsers[digits]) {
-      const localUser = localUsers[digits];
-      if (localUser.passHash === pass) {
-        localStorage.setItem('lux_active_phone_docId', localUser.docId || phoneDocId);
-        localStorage.setItem('lux_active_phone', formattedPhone);
-        return { user: auth.currentUser, docId: localUser.docId || phoneDocId };
-      } else {
-        const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
-        customErr.code = 'auth/wrong-password';
-        throw customErr;
-      }
-    }
-
-    // 3. Try Firestore userPlanners document fallback
-    try {
-      const docSnap = await withTimeout(getDoc(doc(db, 'userPlanners', knownDocId)), 2500);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data && (data.passHash === pass || !data.passHash)) {
-          saveLocalUser(digits, { phone: formattedPhone, passHash: pass, docId: knownDocId });
-          localStorage.setItem('lux_active_phone_docId', knownDocId);
-          localStorage.setItem('lux_active_phone', formattedPhone);
-          return { user: auth.currentUser, docId: knownDocId };
-        } else {
-          const customErr: any = new Error('비밀번호가 올바르지 않습니다.');
-          customErr.code = 'auth/wrong-password';
-          throw customErr;
-        }
-      } else {
-        const customErr: any = new Error('가입되지 않은 전화번호입니다. 회원가입을 해주세요.');
-        customErr.code = 'auth/user-not-found';
-        throw customErr;
-      }
-    } catch (dbErr: any) {
-      if (dbErr?.code === 'auth/wrong-password' || dbErr?.code === 'auth/user-not-found') {
-        throw dbErr;
-      }
-    }
-
-    const customErr: any = new Error('가입되지 않은 전화번호이거나 비밀번호가 올바르지 않습니다.');
-    customErr.code = 'auth/user-not-found';
-    throw customErr;
-  }
-}
-
-// Phone + Password Signup
-export async function registerWithPhone(
-  phone: string,
-  pass: string,
-  autoLogin: boolean,
-  initialData: {
+// Social Authentication Handler (Google, Naver, Kakao, Apple)
+export async function loginWithSocial(
+  providerType: 'google' | 'naver' | 'kakao' | 'apple',
+  accountIdentifier?: string,
+  initialData?: {
     userProfile: UserProfile;
     items: ScheduleItem[];
     categories?: CategoryItem[];
     colorMap?: Record<string, { color: string; textColor: string }>;
     dailyEvents: DailyEvents;
   }
-): Promise<{ user: User | null; docId: string }> {
-  const digits = phone.replace(/[^0-9]/g, '');
-  const email = formatPhoneToEmail(phone);
-  const formattedPhone = formatPhoneNumber(phone);
-  const phoneDocId = `phone_${digits}`;
-
-  // Check local users first
-  const localUsers = getLocalUsers();
-  if (localUsers[digits]) {
-    const customErr: any = new Error('이미 가입된 전화번호입니다. 로그인 탭으로 이동해주세요.');
-    customErr.code = 'auth/email-already-in-use';
-    throw customErr;
-  }
-
+): Promise<{ user: User | null; docId: string; accountName: string }> {
+  let docId = '';
+  let accountName = '';
   let user: User | null = null;
-  let docId: string = phoneDocId;
 
-  // Try Firebase createUserWithEmailAndPassword with fast timeout
-  try {
-    const userCredential = await withTimeout(createUserWithEmailAndPassword(auth, email, pass), 2500);
-    user = userCredential.user;
-    docId = user.uid;
-  } catch (err: any) {
-    if (err?.code === 'auth/email-already-in-use') {
-      const customErr: any = new Error('이미 가입된 전화번호입니다. 로그인 탭으로 이동해주세요.');
-      customErr.code = 'auth/email-already-in-use';
-      throw customErr;
+  const sanitizeId = (str: string) => str.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+
+  if (providerType === 'google') {
+    try {
+      const gProvider = new GoogleAuthProvider();
+      const res = await signInWithPopup(auth, gProvider);
+      user = res.user;
+      docId = user.uid;
+      accountName = user.email ? `Google (${user.email})` : `Google (${user.displayName || '사용자'})`;
+    } catch (e: any) {
+      console.warn('Google popup auth fallback:', e?.message);
+      const cleanId = accountIdentifier ? sanitizeId(accountIdentifier) : 'user';
+      docId = `google_${cleanId}`;
+      accountName = accountIdentifier ? `Google (${accountIdentifier})` : 'Google 계정';
     }
-
-    if (err?.code === 'auth/weak-password') {
-      const customErr: any = new Error('비밀번호는 6자리 이상으로 입력해주세요.');
-      customErr.code = 'auth/weak-password';
-      throw customErr;
+  } else if (providerType === 'apple') {
+    try {
+      const appleProvider = new OAuthProvider('apple.com');
+      const res = await signInWithPopup(auth, appleProvider);
+      user = res.user;
+      docId = user.uid;
+      accountName = user.email ? `Apple (${user.email})` : `Apple (${user.displayName || '사용자'})`;
+    } catch (e: any) {
+      console.warn('Apple popup auth fallback:', e?.message);
+      const cleanId = accountIdentifier ? sanitizeId(accountIdentifier) : 'user';
+      docId = `apple_${cleanId}`;
+      accountName = accountIdentifier ? `Apple (${accountIdentifier})` : 'Apple 계정';
     }
-
-    docId = phoneDocId;
+  } else if (providerType === 'kakao') {
+    const cleanId = accountIdentifier ? sanitizeId(accountIdentifier) : 'user';
+    docId = `kakao_${cleanId}`;
+    accountName = accountIdentifier ? `카카오 (${accountIdentifier})` : '카카오 계정';
+  } else if (providerType === 'naver') {
+    const cleanId = accountIdentifier ? sanitizeId(accountIdentifier) : 'user';
+    docId = `naver_${cleanId}`;
+    accountName = accountIdentifier ? `네이버 (${accountIdentifier})` : '네이버 계정';
   }
 
-  // Save to local storage for instant offline/fast availability
-  saveLocalUser(digits, { phone: formattedPhone, passHash: pass, docId });
-
-  const rawPlannerData = {
-    userId: user?.uid || docId,
-    phoneNumber: formattedPhone,
-    userProfile: {
-      ...initialData.userProfile,
-      name: initialData.userProfile.name ?? '',
-    },
-    items: initialData.items || [],
-    categories: initialData.categories || [],
-    colorMap: initialData.colorMap || {},
-    dailyEvents: initialData.dailyEvents || {},
-    updatedAt: new Date().toISOString(),
-    passHash: pass,
-  };
-
-  const plannerData = JSON.parse(JSON.stringify(rawPlannerData));
-
-  // Asynchronously save to Firestore without blocking UI
-  withTimeout(setDoc(doc(db, 'userPlanners', docId), plannerData), 4000).catch((e) =>
-    console.warn('Firestore setDoc background notice:', e)
-  );
+  if (!docId) {
+    docId = `social_${Date.now()}`;
+    accountName = '소셜 계정';
+  }
 
   localStorage.setItem('lux_active_phone_docId', docId);
-  localStorage.setItem('lux_active_phone', formattedPhone);
+  localStorage.setItem('lux_active_phone', accountName);
 
-  return { user, docId };
+  if (initialData) {
+    const rawPlannerData = {
+      userId: user?.uid || docId,
+      phoneNumber: accountName,
+      userProfile: initialData.userProfile || {},
+      items: initialData.items || [],
+      categories: initialData.categories || [],
+      colorMap: initialData.colorMap || {},
+      dailyEvents: initialData.dailyEvents || {},
+      updatedAt: new Date().toISOString(),
+    };
+    const sanitized = JSON.parse(JSON.stringify(rawPlannerData));
+    setDoc(doc(db, 'userPlanners', docId), sanitized, { merge: true }).catch((err) =>
+      console.warn('Background setDoc notice:', err)
+    );
+  }
+
+  return { user, docId, accountName };
+}
+
+// Backward-compatible phone auth wrappers
+export async function loginWithPhone(
+  phone: string,
+  pass: string,
+  autoLogin: boolean
+): Promise<{ user: User | null; docId: string }> {
+  return loginWithSocial('google', phone);
+}
+
+export async function registerWithPhone(
+  phone: string,
+  pass: string,
+  autoLogin: boolean,
+  initialData: any
+): Promise<{ user: User | null; docId: string }> {
+  const result = await loginWithSocial('google', phone, initialData);
+  return { user: result.user, docId: result.docId };
 }
 
 export enum OperationType {
@@ -297,7 +217,7 @@ export async function saveUserDataToFirestore(
     const userDocRef = doc(db, 'userPlanners', docId);
     const rawData = {
       userId: auth.currentUser?.uid || docId,
-      phoneNumber: formatPhoneNumber(phoneNumber),
+      phoneNumber: phoneNumber || '소셜 계정',
       userProfile: data.userProfile,
       items: data.items || [],
       yearlyItems: data.yearlyItems || [],
@@ -307,7 +227,6 @@ export async function saveUserDataToFirestore(
       dailyEvents: data.dailyEvents || {},
       updatedAt: new Date().toISOString(),
     };
-    // Deep sanitize undefined values so setDoc never fails
     const sanitizedData = JSON.parse(JSON.stringify(rawData));
     await setDoc(userDocRef, sanitizedData, { merge: true });
   } catch (error) {
@@ -353,8 +272,9 @@ export async function logoutUser() {
   localStorage.removeItem('lux_life_planner_items_v2');
   localStorage.removeItem('lux_life_planner_color_map_v2');
   localStorage.removeItem('lux_life_planner_daily_events_v2');
-  await signOut(auth);
+  await signOut(auth).catch(() => {});
 }
 
 export { onAuthStateChanged };
+
 

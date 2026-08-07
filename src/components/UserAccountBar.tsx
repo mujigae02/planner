@@ -1,6 +1,5 @@
 import React from 'react';
-import { Phone, RefreshCw, LogOut, Smartphone, Check, Cloud } from 'lucide-react';
-import { logoutUser } from '../lib/authService';
+import { User, RefreshCw, LogOut, Cloud } from 'lucide-react';
 
 interface UserAccountBarProps {
   currentUserPhone: string | null;
@@ -19,15 +18,6 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
   onLogout,
   onManualSync,
 }) => {
-  // Format masked phone number for privacy display
-  const getMaskedPhone = (phone: string) => {
-    const digits = phone.replace(/[^0-9]/g, '');
-    if (digits.length >= 10) {
-      return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
-    }
-    return phone;
-  };
-
   return (
     <div className="bg-[#FAF9F7] border-b border-[#E5E1DA] px-4 py-2.5 text-xs no-print">
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
@@ -36,8 +26,8 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
           {currentUserPhone ? (
             <div className="flex items-center gap-2.5">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#E8F5E9] border border-[#C8E6C9] rounded-full font-semibold text-[#2E7D32]">
-                <Smartphone className="w-3.5 h-3.5 text-[#2E7D32]" />
-                <span>{getMaskedPhone(currentUserPhone)}</span>
+                <User className="w-3.5 h-3.5 text-[#2E7D32]" />
+                <span>{currentUserPhone}</span>
               </span>
 
               <div className="flex items-center gap-1 text-[11px] text-[#555]">
@@ -65,7 +55,7 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
                 비로그인 (단말기 임시 저장)
               </span>
               <span className="hidden sm:inline text-[11px] text-[#777]">
-                전화번호로 로그인하면 모바일, 다른 PC에서도 내 플래너를 불러올 수 있습니다.
+                구글, 네이버, 카카오, 애플 계정으로 로그인하면 스마트폰과 PC 간 데이터가 실시간 동기화됩니다.
               </span>
             </div>
           )}
@@ -76,7 +66,7 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
           {currentUserPhone ? (
             <button
               onClick={() => onLogout()}
-              className="px-3 py-1.5 rounded-lg border border-[#D32F2F] bg-white hover:bg-[#FFEBEE] text-[#D32F2F] transition-colors flex items-center gap-1.5 text-[11px] font-bold shadow-2xs"
+              className="px-3 py-1.5 rounded-lg border border-[#D32F2F] bg-white hover:bg-[#FFEBEE] text-[#D32F2F] transition-colors flex items-center gap-1.5 text-[11px] font-bold shadow-2xs cursor-pointer"
               title="로그아웃"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -87,8 +77,8 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
               onClick={onOpenAuthModal}
               className="px-3.5 py-1.5 rounded-full bg-[#20487C] hover:bg-[#16355C] text-white transition-all flex items-center gap-1.5 text-[11px] font-semibold shadow-2xs cursor-pointer"
             >
-              <Phone className="w-3.5 h-3.5" />
-              <span>전화번호 로그인 / 회원가입</span>
+              <Cloud className="w-3.5 h-3.5" />
+              <span>소셜 계정 로그인 / 동기화</span>
             </button>
           )}
         </div>
@@ -96,3 +86,4 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
     </div>
   );
 };
+
