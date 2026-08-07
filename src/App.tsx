@@ -131,6 +131,10 @@ export default function App() {
   const [activeDocId, setActiveDocId] = useState<string>(() => localStorage.getItem('lux_active_phone_docId') || '');
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
+  // 클립보드 복사된 하루 일정 상태
+  const [copiedDayItems, setCopiedDayItems] = useState<ScheduleItem[] | null>(null);
+  const [copiedSourceDateStr, setCopiedSourceDateStr] = useState<string>('');
+
   // 상단 알림 메시지 토스트 state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -725,6 +729,89 @@ export default function App() {
     }
   };
 
+  // 7-1. 특정 날짜 하루 전체 일정 삭제
+  const handleDeleteDayItems = (dateStr: string) => {
+    const dayItems = items.filter((it) => it.date === dateStr);
+    if (dayItems.length === 0) {
+      showToast('삭제할 일정이 없습니다.');
+      return;
+    }
+
+    const [year, month, day] = dateStr.split('-');
+    const formattedDateStr = `${Number(month)}월 ${Number(day)}일`;
+    if (window.confirm(`${formattedDateStr}의 모든 일정(${dayItems.length}개)을 삭제하시겠습니까?`)) {
+      setItems((prev) => prev.filter((it) => it.date !== dateStr));
+      showToast(`${formattedDateStr}의 모든 일정이 삭제되었습니다.`);
+    }
+  };
+
+  // 7-2. 하루 일정 복사
+  const handleCopyDayItems = (dateStr: string) => {
+    const dayItems = items.filter((it) => it.date === dateStr);
+    if (dayItems.length === 0) {
+      showToast('복사할 일정이 없습니다.');
+      return;
+    }
+    const [year, month, day] = dateStr.split('-');
+    const formattedDateStr = `${Number(month)}월 ${Number(day)}일`;
+    setCopiedDayItems(dayItems);
+    setCopiedSourceDateStr(formattedDateStr);
+    showToast(`${formattedDateStr} 일정(${dayItems.length}개)이 복사되었습니다.`);
+  };
+
+  // 7-3. 하루 일정 붙여넣기
+  const handlePasteDayItems = (targetDateStr: string) => {
+    if (!copiedDayItems || copiedDayItems.length === 0) {
+      showToast('복사된 일정이 없습니다. 먼저 일정을 복사해 주세요.');
+      return;
+    }
+    const [year, month, day] = targetDateStr.split('-');
+    const formattedDateStr = `${Number(month)}월 ${Number(day)}일`;
+
+    const newItemsToAppend: ScheduleItem[] = copiedDayItems.map((item) => ({
+      ...item,
+      id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      date: targetDateStr,
+      createdAt: new Date().toISOString(),
+    }));
+
+    setItems((prev) => [...prev, ...newItemsToAppend]);
+    showToast(`${copiedSourceDateStr}의 일정 ${copiedDayItems.length}개를 ${formattedDateStr}로 붙여넣었습니다.`);
+  };
+
+  // 7-4. 드래그앤드롭으로 일정 위치(날짜/시간) 이동
+  const handleMoveItem = (id: string, targetDateStr: string, startHour: number, startMinute: number) => {
+    const targetItem = items.find((it) => it.id === id);
+    if (!targetItem) return;
+
+    if (
+      targetItem.date === targetDateStr &&
+      targetItem.startHour === startHour &&
+      (targetItem.startMinute || 0) === startMinute
+    ) {
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id === id) {
+          return {
+            ...it,
+            date: targetDateStr,
+            startHour,
+            startMinute,
+          };
+        }
+        return it;
+      })
+    );
+
+    const [year, month, day] = targetDateStr.split('-');
+    const formattedDateStr = `${Number(month)}월 ${Number(day)}일`;
+    const timeStr = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+    showToast(`'${targetItem.title}' 일정을 ${formattedDateStr} ${timeStr}(으)로 이동했습니다.`);
+  };
+
   // 8. 15분 단위 셀 시간 늘리기/줄이기
   const handleAdjustDuration = (id: string, deltaSlots: number) => {
     setItems((prev) =>
@@ -857,6 +944,11 @@ export default function App() {
                 onSelectSlotToCreate={handleSelectSlotToCreate}
                 onAdjustDuration={handleAdjustDuration}
                 onDeleteItem={handleDeleteItem}
+                onDeleteDayItems={handleDeleteDayItems}
+                onCopyDayItems={handleCopyDayItems}
+                onPasteDayItems={handlePasteDayItems}
+                canPasteDay={Boolean(copiedDayItems && copiedDayItems.length > 0)}
+                onMoveItem={handleMoveItem}
               />
             </div>
           </div>
@@ -873,6 +965,11 @@ export default function App() {
             onSelectSlotToCreate={handleSelectSlotToCreate}
             onAdjustDuration={handleAdjustDuration}
             onDeleteItem={handleDeleteItem}
+            onDeleteDayItems={handleDeleteDayItems}
+            onCopyDayItems={handleCopyDayItems}
+            onPasteDayItems={handlePasteDayItems}
+            canPasteDay={Boolean(copiedDayItems && copiedDayItems.length > 0)}
+            onMoveItem={handleMoveItem}
           />
         )}
 
