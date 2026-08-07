@@ -122,7 +122,7 @@ export default function App() {
 
   // 2주 시작 월요일 기준일
   const [baseMonday, setBaseMonday] = useState<Date>(() => getMonday(new Date()));
-  const [viewMode, setViewMode] = useState<'twoWeekHorizontal' | 'splitCalendar' | 'yearlyCalendar' | 'longTermPlanner'>('twoWeekHorizontal');
+  const [viewMode, setViewMode] = useState<'twoWeekHorizontal' | 'splitCalendar' | 'yearlyCalendar' | 'longTermPlanner'>('splitCalendar');
 
   // 모달 제어 상태
   const [isModalOpen, setIsModalOpen] = useState(false);

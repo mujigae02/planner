@@ -136,11 +136,23 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
       }
     });
 
+    const newCellColors: Record<string, string> = {};
+    (Object.entries(cellColors) as [string, string][]).forEach(([key, val]) => {
+      const [yStr, cStr] = key.split('_');
+      const c = parseInt(cStr, 10);
+      if (c < colIdx) {
+        newCellColors[key] = val;
+      } else if (c > colIdx) {
+        newCellColors[`${yStr}_${c - 1}`] = val;
+      }
+    });
+
     onChangeData({
       startYear,
       yearCount,
       columns: newCols,
       cells: newCells,
+      cellColors: newCellColors,
     });
   };
 
@@ -314,7 +326,7 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                         />
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-center gap-1 relative px-5">
                         <span
                           onClick={() => handleStartEditCol(colIdx)}
                           className="cursor-pointer hover:underline decoration-dotted underline-offset-4 flex-1 truncate text-center"
@@ -322,6 +334,19 @@ export const LongTermPlannerView: React.FC<LongTermPlannerViewProps> = ({
                         >
                           {colName}
                         </span>
+                        {columns.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteColumn(colIdx);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1 text-[#8C857E] hover:text-[#C94A4A] hover:bg-red-50 rounded-md absolute right-0 top-1/2 -translate-y-1/2"
+                            title="이 열 삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </th>

@@ -137,7 +137,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
             <thead>
               {/* 1행: 요일 및 날짜 (top-0 sticky) */}
               <tr className="bg-[#FAF9F7]">
-                <th className="sticky top-0 left-0 z-50 bg-[#FAF9F7] w-14 md:w-16 h-[54px] min-h-[54px] p-1 text-center text-xs font-bold text-[#8C857E] font-gothic border-r border-b border-[#E5E1DA] shadow-2xs">
+                <th className="sticky top-0 left-0 z-50 bg-[#FAF9F7] w-14 md:w-16 h-[36px] min-h-[36px] p-1 text-center text-xs font-bold text-[#8C857E] font-gothic border-r border-b border-[#E5E1DA] shadow-2xs">
                   시간
                 </th>
                 {days.map((d) => {
@@ -153,13 +153,13 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                       key={dateKey}
                       id={`col-${dateKey}`}
                       style={{ width: isContinuous ? `calc((100% - 60px) / 14)` : undefined, minWidth: isContinuous ? '80px' : undefined }}
-                      className={`sticky top-0 z-30 h-[54px] min-h-[54px] p-1 text-center border-r border-b border-[#E5E1DA] transition-colors ${
+                      className={`sticky top-0 z-30 h-[36px] min-h-[36px] px-1 py-0.5 text-center border-r border-b border-[#E5E1DA] transition-colors ${
                         today ? 'bg-[#F0FAF7]' : 'bg-[#FAF9F7]'
                       }`}
                     >
-                      <div className="flex flex-col items-center justify-center h-full leading-tight">
+                      <div className="flex items-center justify-center gap-1.5 h-full leading-none">
                         <span
-                          className={`text-xs font-bold font-sans-kr flex items-center gap-1 leading-tight ${
+                          className={`text-xs font-bold font-sans-kr whitespace-nowrap ${
                             redDay
                               ? 'text-[#C94A4A]'
                               : isSaturday
@@ -170,9 +170,9 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                           {DAY_NAMES[(dayOfWeek + 6) % 7]}요일
                         </span>
                         <span
-                          className={`text-xs font-serif-kr mt-0.5 leading-tight ${
+                          className={`text-xs font-serif-kr whitespace-nowrap ${
                             today
-                              ? 'bg-[#E3F2FD] text-[#0D47A1] px-2 py-0.5 rounded-full text-[11px] font-bold shadow-2xs border border-[#BBDEFB]'
+                              ? 'bg-[#E3F2FD] text-[#0D47A1] px-1.5 py-0.2 rounded-full text-[11px] font-bold shadow-2xs border border-[#BBDEFB]'
                               : redDay
                               ? 'text-[#C94A4A] font-bold'
                               : isSaturday
@@ -183,20 +183,15 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                         >
                           {d.getMonth() + 1}.{d.getDate()}
                         </span>
-                        {holidayName && (
-                          <span className="text-[9px] text-[#C94A4A] font-gothic font-medium truncate max-w-[70px] mt-0.5 leading-tight" title={holidayName}>
-                            {holidayName}
-                          </span>
-                        )}
                       </div>
                     </th>
                   );
                 })}
               </tr>
 
-              {/* 2행: 그날의 주요 행사 기록 행 (top-[54px] sticky) */}
+              {/* 2행: 그날의 주요 행사 기록 행 (top-[36px] sticky) */}
               <tr className="bg-[#FAF9F7]">
-                <th className="sticky top-[54px] left-0 z-50 bg-[#FAF9F7] w-14 md:w-16 h-[34px] p-1 text-center border-r border-b border-[#E5E1DA] shadow-2xs">
+                <th className="sticky top-[36px] left-0 z-50 bg-[#FAF9F7] w-14 md:w-16 h-[30px] p-0.5 text-center border-r border-b border-[#E5E1DA] shadow-2xs">
                   <span className="text-[11px] text-[#7C6F64] font-bold whitespace-nowrap">주요 행사</span>
                 </th>
                 {days.map((d) => {
@@ -207,7 +202,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                   return (
                     <th
                       key={`event-${dateKey}`}
-                      className={`sticky top-[54px] z-30 h-[34px] p-1 border-r border-b border-[#E5E1DA] font-normal transition-colors ${
+                      className={`sticky top-[36px] z-30 h-[30px] p-0.5 border-r border-b border-[#E5E1DA] font-normal transition-colors ${
                         today ? 'bg-[#F0FAF7]' : 'bg-[#FAF9F7]'
                       }`}
                     >
@@ -246,7 +241,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                       isHourEnd ? 'border-b border-b-[#D5D1CA]' : 'border-b border-b-[#E5E1DA]/30'
                     }`}>
                       {isHourly && (
-                        <span className="block pt-0 px-0.5 font-mono font-bold text-[9px] text-[#8C857E] leading-none -mt-1">
+                        <span className="block pt-0 px-0.5 font-mono font-bold text-[10px] text-[#8C857E] leading-none -mt-1">
                           {String(hourNum).padStart(2, '0')}:00
                         </span>
                       )}
@@ -302,7 +297,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                                     }}
                                     title={`${item.title} (${String(item.startHour).padStart(2, '0')}:${String(item.startMinute || 0).padStart(2, '0')} ~ ${durMin}분)`}
                                   >
-                                    <h4 className="font-gothic text-[9px] md:text-[10px] leading-tight font-medium tracking-tight break-words whitespace-pre-wrap w-full overflow-hidden truncate">
+                                    <h4 className="font-gothic text-[10px] md:text-[11px] leading-tight font-medium tracking-tight break-words whitespace-pre-wrap w-full overflow-hidden truncate">
                                       {item.title}
                                     </h4>
                                   </div>

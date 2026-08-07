@@ -179,19 +179,6 @@ export const Header: React.FC<HeaderProps> = ({
         {/* 뷰 모드 탭 (현재 위치를 나타내는 색상: 파랑 bg-[#2563EB]) */}
         <div className="flex items-center bg-white border border-[#E5E1DA] rounded-full p-0.5 self-start sm:self-auto shadow-2xs flex-wrap">
           <button
-            onClick={() => onViewModeChange('twoWeekHorizontal')}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-              viewMode === 'twoWeekHorizontal'
-                ? 'bg-[#2563EB] text-white shadow-2xs'
-                : 'text-[#8C857E] hover:text-[#2563EB] hover:bg-[#F0F6FF]'
-            }`}
-            title="스와이프하며 과거/미래 일정을 연속해서 보기"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>연속 보기</span>
-          </button>
-
-          <button
             onClick={() => onViewModeChange('splitCalendar')}
             className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
               viewMode === 'splitCalendar'
@@ -202,6 +189,19 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Columns className="w-3.5 h-3.5" />
             <span>주간 계획</span>
+          </button>
+
+          <button
+            onClick={() => onViewModeChange('twoWeekHorizontal')}
+            className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+              viewMode === 'twoWeekHorizontal'
+                ? 'bg-[#2563EB] text-white shadow-2xs'
+                : 'text-[#8C857E] hover:text-[#2563EB] hover:bg-[#F0F6FF]'
+            }`}
+            title="스와이프하며 과거/미래 일정을 연속해서 보기"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>연속 보기</span>
           </button>
 
           <button
