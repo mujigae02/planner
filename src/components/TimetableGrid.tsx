@@ -221,8 +221,8 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                         today ? 'bg-[#F0FAF7]' : 'bg-[#FAF9F7]'
                       }`}
                     >
-                      {/* 중앙 정렬되는 요일 및 날짜 텍스트 (우측 더보기 버튼 공간 pr-5 확보) */}
-                      <div className="flex items-center justify-center gap-1 h-full leading-none w-full pr-5 pl-1">
+                      {/* 완벽하게 가운데 정렬되는 요일 및 날짜 텍스트 */}
+                      <div className="flex items-center justify-center gap-1 h-full leading-none w-full px-1">
                         <span
                           className={`text-xs font-bold font-sans-kr whitespace-nowrap ${
                             redDay
