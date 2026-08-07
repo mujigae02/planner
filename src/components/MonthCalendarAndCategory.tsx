@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Palette, Settings } from 'lucide-react';
 import { CategoryItem } from '../types';
 import { formatDateKey, isRedDay, getKoreanHolidayName } from '../utils/dateUtils';
@@ -17,7 +17,18 @@ export const MonthCalendarAndCategory: React.FC<MonthCalendarAndCategoryProps> =
   onOpenColorManager,
 }) => {
   // 달력 표시용 년/월 state
-  const [calendarDate, setCalendarDate] = useState<Date>(() => new Date(currentWeekStartDate));
+  const [calendarDate, setCalendarDate] = useState<Date>(() => {
+    const mid = new Date(currentWeekStartDate);
+    mid.setDate(mid.getDate() + 3);
+    return mid;
+  });
+
+  // 주차 이동 시 대표 월(목요일 기준)로 달력 자동 전환
+  useEffect(() => {
+    const mid = new Date(currentWeekStartDate);
+    mid.setDate(mid.getDate() + 3);
+    setCalendarDate(mid);
+  }, [currentWeekStartDate]);
 
   const year = calendarDate.getFullYear();
   const month = calendarDate.getMonth();
