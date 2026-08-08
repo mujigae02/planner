@@ -134,6 +134,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   return errInfo;
 }
 
+export interface SaveUserDataOptions {
+  reason?: 'auto-save' | 'manual-user-sync' | 'initial-new-user-creation' | 'unspecified';
+  isUserEditing?: boolean;
+  hasReceivedInitialSnapshot?: boolean;
+  isRemoteUpdating?: boolean;
+  requestId?: number;
+}
+
 // Save/Sync User Data to Firestore
 export async function saveUserDataToFirestore(
   docId: string,
@@ -146,12 +154,44 @@ export async function saveUserDataToFirestore(
     categories?: CategoryItem[];
     colorMap?: Record<string, { color: string; textColor: string }>;
     dailyEvents: DailyEvents;
-  }
+  },
+  options?: SaveUserDataOptions
 ) {
+  const reason = options?.reason || 'unspecified';
+  const isInitialized = options?.hasReceivedInitialSnapshot ?? true;
+  const isRemoteUpdating = options?.isRemoteUpdating ?? false;
+  const isUserEditing = options?.isUserEditing ?? true;
+  const requestId = options?.requestId ?? 0;
+
+  console.log('[Firestore Save Attempt]', {
+    reason,
+    isInitialized,
+    isRemoteUpdating,
+    isUserEditing,
+    requestId,
+  });
+
   if (!auth.currentUser) {
-    console.log("비로그인 상태이므로 Firestore 저장을 건너띕니다.");
+    console.log("[Firestore Save Blocked] 비로그인 상태이므로 Firestore 저장을 건너띕니다.");
     return;
   }
+
+  // Final Guard: Block auto-saves that were not triggered by an explicit user edit or after initial sync
+  if (reason === 'auto-save') {
+    if (!isInitialized) {
+      console.log(`[Firestore Save Blocked] 🛑 (reason=${reason}) 최초 snapshot 수신 전이므로 저장을 차단합니다.`);
+      return;
+    }
+    if (isRemoteUpdating) {
+      console.log(`[Firestore Save Blocked] 🛑 (reason=${reason}) 원격 데이터 적용 중이므로 저장을 차단합니다.`);
+      return;
+    }
+    if (!isUserEditing) {
+      console.log(`[Firestore Save Blocked] 🛑 (reason=${reason}) 사용자에 의한 직접 변경이 아니므로(isUserEditing=false) 저장을 차단합니다.`);
+      return;
+    }
+  }
+
   const targetUid = docId || auth.currentUser.uid;
   if (!targetUid) return;
   const path = `userPlanners/${targetUid}`;
@@ -171,8 +211,7 @@ export async function saveUserDataToFirestore(
     };
     const sanitizedData = JSON.parse(JSON.stringify(rawData));
     await setDoc(userDocRef, sanitizedData, { merge: true });
-    console.log("Firestore 저장 완료 (UID):", targetUid, sanitizedData);
-    console.log("Firestore 저장 성공! items 개수:", sanitizedData.items?.length || 0);
+    console.log(`[Firestore Save Executed] ✅ Firestore 저장 완료 (reason: ${reason}, Req ID: ${requestId}, items: ${sanitizedData.items?.length || 0})`);
   } catch (error) {
     console.error('[Firestore] 데이터 저장 실패:', error);
     handleFirestoreError(error, OperationType.WRITE, path);

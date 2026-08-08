@@ -388,14 +388,11 @@ export default function App() {
       console.log(`[Sync Conflict Check] Remote exists: ${exists}, items: ${remoteItems.length} (updatedAt: ${remoteUpdatedAtStr || 'none'})`);
 
       // Conflict Resolution Logic:
-      // If remote doc does not exist, OR local items exist while remote items are empty, OR local data timestamp is distinctly newer:
-      const shouldPushLocal =
-        !exists ||
-        (localItems.length > 0 && remoteItems.length === 0) ||
-        (localUpdatedAt > 0 && remoteUpdatedAt > 0 && localUpdatedAt > remoteUpdatedAt);
+      // Only push local data if document does NOT exist in Firestore at all (new user initial creation)
+      const shouldPushLocal = !exists;
 
       if (shouldPushLocal && localItems.length > 0) {
-        console.log(`[Sync Resolution] 로컬 데이터가 더 최신이거나 서버 데이터가 비어있습니다. 로컬 데이터(${localItems.length}개)를 Firestore로 업로드합니다.`);
+        console.log(`[Sync Resolution] 신규 사용자 문서 생성을 위해 로컬 데이터(${localItems.length}개)를 Firestore로 최초 업로드합니다.`);
         
         const localPayload = {
           userProfile: localCache?.userProfile || userProfile,
@@ -409,7 +406,11 @@ export default function App() {
         const currentPayload = createNormalizedPayloadString(localPayload);
         lastSavedPayloadRef.current = currentPayload;
 
-        saveUserDataToFirestore(currentDocId, currentUserPhone || '', localPayload)
+        saveUserDataToFirestore(currentDocId, currentUserPhone || '', localPayload, {
+          reason: 'initial-new-user-creation',
+          isUserEditing: false,
+          hasReceivedInitialSnapshot: false,
+        })
           .then(() => {
             isSnapshotReadyRef.current = true;
             hasReceivedInitialSnapshotRef.current = true;
@@ -620,7 +621,13 @@ export default function App() {
       console.log(`[Sync AutoSave Execute] 🚀 [실제 사용자 변경] Firestore 저장을 실행합니다... (Request ID: ${thisSaveRequestId}, items: ${items.length}개)`);
 
       try {
-        await saveUserDataToFirestore(currentDocId, currentUserPhone || '', payloadObj);
+        await saveUserDataToFirestore(currentDocId, currentUserPhone || '', payloadObj, {
+          reason: 'auto-save',
+          isUserEditing: isUserEditingRef.current,
+          hasReceivedInitialSnapshot: hasReceivedInitialSnapshotRef.current,
+          isRemoteUpdating: isRemoteUpdatingRef.current,
+          requestId: thisSaveRequestId,
+        });
 
         // Final verification after async network write completes
         if (thisSaveRequestId === saveRequestIdRef.current) {
@@ -1134,14 +1141,19 @@ export default function App() {
     if (!docId) return;
     setIsSyncing(true);
     try {
-      await saveUserDataToFirestore(docId, currentUserPhone || '', {
-        userProfile,
-        items,
-        yearlyItems,
-        longTermPlanner,
-        categories,
-        dailyEvents,
-      });
+      await saveUserDataToFirestore(
+        docId,
+        currentUserPhone || '',
+        {
+          userProfile,
+          items,
+          yearlyItems,
+          longTermPlanner,
+          categories,
+          dailyEvents,
+        },
+        { reason: 'manual-user-sync', isUserEditing: true, hasReceivedInitialSnapshot: true }
+      );
       setLastSyncedAt(new Date().toLocaleTimeString());
       showToast('☁️ 클라우드 동기화가 즉시 완료되었습니다.');
     } catch (e) {
