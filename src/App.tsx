@@ -393,6 +393,8 @@ export default function App() {
       setCategories(receivedCategories);
       setDailyEvents(receivedDailyEvents);
 
+      console.log("UI 상태 업데이트 완료, 적용된 items 개수:", receivedItems.length);
+
       const incomingPayload = JSON.stringify({
         userProfile: data.userProfile || {},
         items: receivedItems,
