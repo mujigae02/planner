@@ -154,6 +154,7 @@ export default function App() {
 
   const [activeDocId, setActiveDocId] = useState<string>(() => localStorage.getItem('lux_active_phone_docId') || '');
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [isDataLoading, setIsDataLoading] = useState<boolean>(false);
 
   // 클립보드 복사된 하루 일정 상태
   const [copiedDayItems, setCopiedDayItems] = useState<ScheduleItem[] | null>(null);
@@ -182,6 +183,7 @@ export default function App() {
 
         setCurrentUserPhone(accountName);
         setActiveDocId(docId);
+        setIsDataLoading(true);
         localStorage.setItem('lux_active_phone_docId', docId);
         localStorage.setItem('lux_active_phone', accountName);
 
@@ -194,9 +196,19 @@ export default function App() {
         console.log('[Auth] 로그아웃 상태');
         setCurrentUserPhone(null);
         setActiveDocId('');
+        setIsDataLoading(false);
+        isSnapshotReadyRef.current = false;
+
+        // Clear local storage cache completely on logout
+        localStorage.removeItem('plannerData');
         localStorage.removeItem('lux_active_phone_docId');
         localStorage.removeItem('lux_active_phone');
-        localStorage.removeItem('plannerData');
+        localStorage.removeItem(STORAGE_KEYS.PROFILE);
+        localStorage.removeItem(STORAGE_KEYS.ITEMS);
+        localStorage.removeItem(STORAGE_KEYS.YEARLY_ITEMS);
+        localStorage.removeItem(STORAGE_KEYS.LONG_TERM_PLANNER);
+        localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
+        localStorage.removeItem(STORAGE_KEYS.DAILY_EVENTS);
 
         // Safety reset state on logout
         setUserProfile(DEFAULT_USER);
@@ -219,6 +231,7 @@ export default function App() {
     isRemoteUpdatingRef.current = true;
     setActiveDocId(docId);
     setCurrentUserPhone(phone);
+    setIsDataLoading(true);
     localStorage.setItem('lux_active_phone_docId', docId);
     localStorage.setItem('lux_active_phone', phone);
 
@@ -237,12 +250,18 @@ export default function App() {
 
   const handleLogout = async () => {
     isRemoteUpdatingRef.current = true;
+    isSnapshotReadyRef.current = false;
+
+    // Clear all LocalStorage keys completely
+    localStorage.removeItem('plannerData');
     localStorage.removeItem('lux_active_phone_docId');
     localStorage.removeItem('lux_active_phone');
-    localStorage.removeItem('plannerData');
     localStorage.removeItem(STORAGE_KEYS.PROFILE);
+    localStorage.removeItem(STORAGE_KEYS.ITEMS);
     localStorage.removeItem(STORAGE_KEYS.YEARLY_ITEMS);
     localStorage.removeItem(STORAGE_KEYS.LONG_TERM_PLANNER);
+    localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
+    localStorage.removeItem(STORAGE_KEYS.DAILY_EVENTS);
 
     await logoutUser();
     setActiveDocId('');
@@ -255,14 +274,17 @@ export default function App() {
     setCategories(INITIAL_CATEGORIES);
     setDailyEvents({});
     setLongTermPlanner(undefined);
+    setIsDataLoading(false);
 
     setTimeout(() => {
       isRemoteUpdatingRef.current = false;
-    }, 1000);
+    }, 500);
   };
 
-  // 1. LocalStorage Auto-Save Effect (Runs on any local state change)
+  // 1. LocalStorage Auto-Save Effect (Runs on local state change ONLY when logged in and snapshot is ready)
   useEffect(() => {
+    if (!currentUser || !isSnapshotReadyRef.current) return;
+
     try {
       const fullData = {
         userProfile,
@@ -285,7 +307,7 @@ export default function App() {
     } catch (e) {
       console.error('[LocalStorage] 로컬 데이터 저장 실패:', e);
     }
-  }, [userProfile, items, yearlyItems, categories, dailyEvents, longTermPlanner]);
+  }, [userProfile, items, yearlyItems, categories, dailyEvents, longTermPlanner, currentUser]);
 
   // Subscribe to user Firestore planner document when logged in
   useEffect(() => {
@@ -293,6 +315,7 @@ export default function App() {
     if (!currentDocId) {
       console.log('[Sync] 로그인 정보가 없어 Firestore 실시간 구독을 대기합니다.');
       isSnapshotReadyRef.current = false;
+      setIsDataLoading(false);
       return;
     }
 
@@ -320,38 +343,19 @@ export default function App() {
           dailyEvents,
         }).then(() => {
           isSnapshotReadyRef.current = true;
-        }).catch(err => console.error('[Sync] Firestore 초기 문서 생성 에러:', err));
+          setIsDataLoading(false);
+        }).catch(err => {
+          console.error('[Sync] Firestore 초기 문서 생성 에러:', err);
+          isSnapshotReadyRef.current = true;
+          setIsDataLoading(false);
+        });
         return;
       }
 
-      // Compute payload of incoming Firestore data
-      const incomingPayload = JSON.stringify({
-        userProfile: data.userProfile || {},
-        items: data.items || [],
-        yearlyItems: data.yearlyItems || [],
-        longTermPlanner: data.longTermPlanner || null,
-        categories: data.categories || [],
-        dailyEvents: data.dailyEvents || {},
-      });
-
-      // Save raw snapshot data into LocalStorage cache for fallback
-      try {
-        localStorage.setItem('plannerData', JSON.stringify(data));
-      } catch (e) {
-        console.error('[LocalStorage] plannerData 캐시 저장 실패:', e);
-      }
-
-      // If incoming payload is identical to what we last saved or received, skip local updates
-      if (incomingPayload === lastSavedPayloadRef.current) {
-        setLastSyncedAt(new Date().toLocaleTimeString());
-        isSnapshotReadyRef.current = true;
-        return;
-      }
-
-      console.log('[Sync] Firestore 최신 수신 데이터로 UI 및 로컬 데이터 업데이트 중...');
+      console.log("Firestore 실시간 데이터 수신 성공:", data);
       isRemoteUpdatingRef.current = true;
-      lastSavedPayloadRef.current = incomingPayload;
 
+      // Force state update 100% with snapshot data
       if (data.phoneNumber) {
         setCurrentUserPhone(data.phoneNumber);
         localStorage.setItem('lux_active_phone', data.phoneNumber);
@@ -362,26 +366,36 @@ export default function App() {
           cleanProfile.name = '';
         }
         setUserProfile(cleanProfile);
+      } else {
+        setUserProfile(DEFAULT_USER);
       }
 
-      if (Array.isArray(data.items)) {
-        setItems(data.items);
-      }
-      if (Array.isArray(data.yearlyItems)) {
-        setYearlyItems(data.yearlyItems);
-      }
-      if (data.longTermPlanner) {
-        setLongTermPlanner(data.longTermPlanner);
-      }
-      if (Array.isArray(data.categories)) {
-        setCategories(data.categories);
-      }
-      if (data.dailyEvents) {
-        setDailyEvents(data.dailyEvents);
+      setItems(Array.isArray(data.items) ? data.items : []);
+      setYearlyItems(Array.isArray(data.yearlyItems) ? data.yearlyItems : []);
+      setLongTermPlanner(data.longTermPlanner || undefined);
+      setCategories(Array.isArray(data.categories) && data.categories.length > 0 ? data.categories : INITIAL_CATEGORIES);
+      setDailyEvents(data.dailyEvents || {});
+
+      const incomingPayload = JSON.stringify({
+        userProfile: data.userProfile || {},
+        items: data.items || [],
+        yearlyItems: data.yearlyItems || [],
+        longTermPlanner: data.longTermPlanner || null,
+        categories: data.categories || [],
+        dailyEvents: data.dailyEvents || {},
+      });
+      lastSavedPayloadRef.current = incomingPayload;
+
+      // Save raw snapshot data into LocalStorage cache
+      try {
+        localStorage.setItem('plannerData', JSON.stringify(data));
+      } catch (e) {
+        console.error('[LocalStorage] plannerData 캐시 저장 실패:', e);
       }
 
       setLastSyncedAt(new Date().toLocaleTimeString());
       isSnapshotReadyRef.current = true;
+      setIsDataLoading(false);
 
       setTimeout(() => {
         isRemoteUpdatingRef.current = false;
@@ -925,14 +939,18 @@ export default function App() {
     }
   };
 
-  if (isAuthLoading) {
+  if (isAuthLoading || (currentUser && isDataLoading)) {
     return (
       <div className="min-h-screen bg-[#F8F7F4] flex flex-col items-center justify-center p-6 font-sans-kr text-[#2D2926]">
         <div className="flex flex-col items-center gap-4 p-8 bg-white/90 rounded-3xl border border-[#E5E1DA] shadow-lg backdrop-blur-xs max-w-sm w-full text-center">
           <div className="w-10 h-10 border-3 border-[#20487C] border-t-transparent rounded-full animate-spin" />
           <div className="space-y-1">
-            <h3 className="text-sm font-bold text-[#2D2926]">로그인 세션 확인 중</h3>
-            <p className="text-xs text-[#777]">Firebase 인증 상태를 확인하고 있습니다...</p>
+            <h3 className="text-sm font-bold text-[#2D2926]">
+              {currentUser ? 'Firestore 실시간 동기화 중' : '로그인 세션 확인 중'}
+            </h3>
+            <p className="text-xs text-[#777]">
+              {currentUser ? '최신 플래너 데이터를 안전하게 불러오는 중입니다...' : 'Firebase 인증 상태를 확인하고 있습니다...'}
+            </p>
           </div>
         </div>
       </div>
