@@ -291,6 +291,8 @@ export default function App() {
 
   const pendingSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasReceivedInitialSnapshotRef = useRef<boolean>(false);
+  const isUserEditingRef = useRef<boolean>(false);
+  const saveRequestIdRef = useRef<number>(0);
 
   // Helper: Create normalized canonical payload string for accurate equality checks
   const createNormalizedPayloadString = (data: {
@@ -358,6 +360,10 @@ export default function App() {
     hasReceivedInitialSnapshotRef.current = false;
 
     const unsubscribeDoc = subscribeToUserPlanner(currentDocId, (data, exists) => {
+      // Invalidate any in-flight or scheduled auto-save request by incrementing request ID version
+      saveRequestIdRef.current += 1;
+      isUserEditingRef.current = false;
+
       // 1. Check local storage cache or current state for conflict resolution
       let localCache: any = null;
       try {
@@ -547,7 +553,14 @@ export default function App() {
 
     // Guard 2: Skip auto-save if state update was triggered by receiving remote data
     if (isRemoteUpdatingRef.current) {
-      console.log('[Sync] 원격 스냅샷 업데이트 진행 중 - 자동 저장을 차단합니다.');
+      console.log('[Sync AutoSave Guard] 원격 스냅샷 업데이트 진행 중 - 자동 저장을 차단합니다.');
+      setIsSyncing(false);
+      return;
+    }
+
+    // Guard 3: CRITICAL EXPLICIT USER EDIT GUARD - MUST BE TRUE TO AUTO-SAVE!
+    if (!isUserEditingRef.current) {
+      console.log('[Sync AutoSave Guard] 사용자 직접 변경이 아니므로(isUserEditingRef=false) 자동 저장을 건너띕니다.');
       setIsSyncing(false);
       return;
     }
@@ -570,7 +583,7 @@ export default function App() {
 
     const currentPayload = createNormalizedPayloadString(payloadObj);
 
-    // Guard 3: If payload has not changed since last saved/received, do nothing
+    // Guard 4: If payload has not changed since last saved/received, do nothing
     if (lastSavedPayloadRef.current === currentPayload) {
       setIsSyncing(false);
       return;
@@ -579,31 +592,47 @@ export default function App() {
     // Cancel previous pending save timer if user made new local edit
     if (pendingSaveTimerRef.current) {
       clearTimeout(pendingSaveTimerRef.current);
+      pendingSaveTimerRef.current = null;
     }
 
-    pendingSaveTimerRef.current = setTimeout(async () => {
-      // Re-verify flags right before actual network call to ensure no remote update occurred during debounce wait
-      if (!isFirestoreLoaded || !currentUser || !auth.currentUser || isRemoteUpdatingRef.current) {
-        console.log('[Sync] 저장 직전 원격 업데이트 감지 또는 로그인 해제됨 - 자동 저장을 취소합니다.');
-        setIsSyncing(false);
-        return;
-      }
+    // Capture current save request ID
+    const thisSaveRequestId = ++saveRequestIdRef.current;
 
-      if (lastSavedPayloadRef.current === currentPayload) {
-        console.log('[Sync] 데이터가 원격 스냅샷과 동일함 - 중복 저장을 취소합니다.');
+    console.log(`[Sync AutoSave] ⚡ [실제 사용자 변경 감지] 400ms 후 자동 저장 예약 (Request ID: ${thisSaveRequestId})`);
+
+    pendingSaveTimerRef.current = setTimeout(async () => {
+      // Re-verify ALL flags right before actual network call to ensure no remote update occurred during debounce wait
+      if (
+        thisSaveRequestId !== saveRequestIdRef.current ||
+        !hasReceivedInitialSnapshotRef.current ||
+        isRemoteUpdatingRef.current ||
+        !isUserEditingRef.current ||
+        !isFirestoreLoaded ||
+        !currentUser ||
+        !auth.currentUser
+      ) {
+        console.log(`[Sync AutoSave Abort] 🛑 저장이 차단/취소되었습니다 (Request ID: ${thisSaveRequestId}, Current ID: ${saveRequestIdRef.current}, UserEdit: ${isUserEditingRef.current}, RemoteUpdating: ${isRemoteUpdatingRef.current})`);
         setIsSyncing(false);
         return;
       }
 
       setIsSyncing(true);
-      console.log(`[Sync] 사용자 데이터 변경 감지 -> Firestore 자동 저장 시작... (items: ${items.length}개)`);
+      console.log(`[Sync AutoSave Execute] 🚀 [실제 사용자 변경] Firestore 저장을 실행합니다... (Request ID: ${thisSaveRequestId}, items: ${items.length}개)`);
+
       try {
         await saveUserDataToFirestore(currentDocId, currentUserPhone || '', payloadObj);
-        lastSavedPayloadRef.current = currentPayload;
-        setLastSyncedAt(new Date().toLocaleTimeString());
-        console.log(`[Sync] Firestore 자동 저장 성공! (items: ${items.length}개)`);
+
+        // Final verification after async network write completes
+        if (thisSaveRequestId === saveRequestIdRef.current) {
+          lastSavedPayloadRef.current = currentPayload;
+          isUserEditingRef.current = false; // Reset user edit flag after successful save
+          setLastSyncedAt(new Date().toLocaleTimeString());
+          console.log(`[Sync AutoSave Success] ✅ [실제 사용자 변경] Firestore 저장 성공! (Request ID: ${thisSaveRequestId}, items: ${items.length}개)`);
+        } else {
+          console.log(`[Sync AutoSave Notice] ⚠️ 저장 완료 후 요청 ID가 변경되어 상태 업데이트를 무효화합니다 (Req ID: ${thisSaveRequestId}, Current ID: ${saveRequestIdRef.current})`);
+        }
       } catch (err) {
-        console.error('[Sync] Firestore 자동 저장 중 실패:', err);
+        console.error('[Sync AutoSave Error] Firestore 자동 저장 중 실패:', err);
       } finally {
         setIsSyncing(false);
         pendingSaveTimerRef.current = null;
@@ -619,6 +648,7 @@ export default function App() {
   }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone, activeDocId, isFirestoreLoaded]);
 
   const handleUpdateDailyEvent = (dateStr: string, text: string) => {
+    isUserEditingRef.current = true;
     setDailyEvents((prev) => ({
       ...prev,
       [dateStr]: text,
@@ -627,6 +657,7 @@ export default function App() {
 
   // 연간 달력 일정 C.R.U.D 핸들러
   const handleAddYearlyItems = (newItemsData: Omit<YearlyScheduleItem, 'id'>[]) => {
+    isUserEditingRef.current = true;
     const newItems: YearlyScheduleItem[] = newItemsData.map((data, idx) => ({
       ...data,
       id: `yearly-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${idx}`,
@@ -635,16 +666,19 @@ export default function App() {
   };
 
   const handleUpdateYearlyItem = (updatedItem: YearlyScheduleItem) => {
+    isUserEditingRef.current = true;
     setYearlyItems((prev) =>
       prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
     );
   };
 
   const handleDeleteYearlyItem = (id: string) => {
+    isUserEditingRef.current = true;
     setYearlyItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const handleToggleYearlyComplete = (id: string) => {
+    isUserEditingRef.current = true;
     setYearlyItems((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, completed: !item.completed } : item
@@ -741,6 +775,7 @@ export default function App() {
     }
   ) => {
     isRemoteUpdatingRef.current = false;
+    isUserEditingRef.current = true;
     if (!itemData.title || !itemData.date) return;
 
     if (itemData.id) {
@@ -955,6 +990,7 @@ export default function App() {
   // 7. 일정 삭제
   const handleDeleteItem = (id: string, deleteScope: 'single' | 'all' = 'single') => {
     isRemoteUpdatingRef.current = false;
+    isUserEditingRef.current = true;
     const targetItem = items.find((it) => it.id === id);
     if (!targetItem) return;
 
@@ -978,6 +1014,7 @@ export default function App() {
     const [year, month, day] = dateStr.split('-');
     const formattedDateStr = `${Number(month)}월 ${Number(day)}일`;
     if (window.confirm(`${formattedDateStr}의 모든 일정(${dayItems.length}개)을 삭제하시겠습니까?`)) {
+      isUserEditingRef.current = true;
       setItems((prev) => prev.filter((it) => it.date !== dateStr));
       showToast(`${formattedDateStr}의 모든 일정이 삭제되었습니다.`);
     }
@@ -1013,6 +1050,7 @@ export default function App() {
       createdAt: new Date().toISOString(),
     }));
 
+    isUserEditingRef.current = true;
     setItems((prev) => [...prev, ...newItemsToAppend]);
     showToast(`${copiedSourceDateStr}의 일정 ${copiedDayItems.length}개를 ${formattedDateStr}로 붙여넣었습니다.`);
   };
@@ -1030,6 +1068,7 @@ export default function App() {
       return;
     }
 
+    isUserEditingRef.current = true;
     setItems((prev) =>
       prev.map((it) => {
         if (it.id === id) {
@@ -1052,6 +1091,7 @@ export default function App() {
 
   // 8. 15분 단위 셀 시간 늘리기/줄이기
   const handleAdjustDuration = (id: string, deltaSlots: number) => {
+    isUserEditingRef.current = true;
     setItems((prev) =>
       prev.map((it) => {
         if (it.id === id) {
@@ -1067,10 +1107,26 @@ export default function App() {
   const handleResetData = () => {
     if (window.confirm('현재 등록된 일정을 초기화하고 샘플 데이터로 복원하시겠습니까?')) {
       const samples = generateSampleData();
+      isUserEditingRef.current = true;
       setItems(samples);
       setCategories(INITIAL_CATEGORIES);
       setUserProfile(DEFAULT_USER);
     }
+  };
+
+  const handleUpdateProfile = (newProfile: UserProfile) => {
+    isUserEditingRef.current = true;
+    setUserProfile(newProfile);
+  };
+
+  const handleUpdateCategories = (newCategories: CategoryItem[]) => {
+    isUserEditingRef.current = true;
+    setCategories(newCategories);
+  };
+
+  const handleUpdateLongTermPlanner = (data: LongTermPlannerData) => {
+    isUserEditingRef.current = true;
+    setLongTermPlanner(data);
   };
 
   const handleManualSync = async () => {
@@ -1131,7 +1187,7 @@ export default function App() {
         {/* 럭셔리 헤더 */}
         <Header
           userProfile={userProfile}
-          onUpdateProfile={setUserProfile}
+          onUpdateProfile={handleUpdateProfile}
           twoWeekDays={twoWeekDays}
           onPrevWeek={handlePrevWeek}
           onNextWeek={handleNextWeek}
@@ -1152,7 +1208,7 @@ export default function App() {
           /* 보기 옵션 4: 10년 이상 장기 계획 표 형식 플래너 (상단 한 줄 고정) */
           <LongTermPlannerView
             data={longTermPlanner}
-            onChangeData={setLongTermPlanner}
+            onChangeData={handleUpdateLongTermPlanner}
           />
         ) : viewMode === 'yearlyCalendar' ? (
           /* 보기 옵션 3: 한 화면에서 1년 12달을 다 볼 수 있는 년간 달력 보기 (날짜 없이 월만 있는 독립 달력) */
@@ -1235,7 +1291,7 @@ export default function App() {
           isOpen={isColorManagerOpen}
           onClose={() => setIsColorManagerOpen(false)}
           categories={categories}
-          onUpdateCategories={setCategories}
+          onUpdateCategories={handleUpdateCategories}
         />
 
         {/* 전화번호 로그인 / 회원가입 모달 */}
