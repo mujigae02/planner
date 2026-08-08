@@ -253,6 +253,7 @@ export default function App() {
   const handleLogout = async () => {
     isRemoteUpdatingRef.current = true;
     isSnapshotReadyRef.current = false;
+    hasReceivedInitialSnapshotRef.current = false;
     setIsFirestoreLoaded(false);
 
     // Clear all LocalStorage keys completely
@@ -289,6 +290,7 @@ export default function App() {
   };
 
   const pendingSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasReceivedInitialSnapshotRef = useRef<boolean>(false);
 
   // Helper: Create normalized canonical payload string for accurate equality checks
   const createNormalizedPayloadString = (data: {
@@ -346,12 +348,14 @@ export default function App() {
     if (!currentDocId) {
       console.log('[Sync] 로그인 정보가 없어 Firestore 실시간 구독을 대기합니다.');
       isSnapshotReadyRef.current = false;
+      hasReceivedInitialSnapshotRef.current = false;
       setIsDataLoading(false);
       setIsFirestoreLoaded(false);
       return;
     }
 
     console.log('[Sync] Firestore 구독 시작. UID:', currentDocId);
+    hasReceivedInitialSnapshotRef.current = false;
 
     const unsubscribeDoc = subscribeToUserPlanner(currentDocId, (data, exists) => {
       // 1. Check local storage cache or current state for conflict resolution
@@ -402,12 +406,14 @@ export default function App() {
         saveUserDataToFirestore(currentDocId, currentUserPhone || '', localPayload)
           .then(() => {
             isSnapshotReadyRef.current = true;
+            hasReceivedInitialSnapshotRef.current = true;
             setIsFirestoreLoaded(true);
             setIsDataLoading(false);
           })
           .catch((err) => {
             console.error('[Sync] Firestore 로컬 데이터 동기화 업로드 실패:', err);
             isSnapshotReadyRef.current = true;
+            hasReceivedInitialSnapshotRef.current = true;
             setIsFirestoreLoaded(true);
             setIsDataLoading(false);
           });
@@ -434,6 +440,7 @@ export default function App() {
       if (lastSavedPayloadRef.current === incomingPayload) {
         console.log("[Sync Resolution] 수신된 원격 데이터가 현재 앱 상태와 동일합니다. setState 업데이트를 스킵합니다.");
         isSnapshotReadyRef.current = true;
+        hasReceivedInitialSnapshotRef.current = true;
         setIsFirestoreLoaded(true);
         setIsDataLoading(false);
         return;
@@ -500,6 +507,7 @@ export default function App() {
 
       setLastSyncedAt(new Date().toLocaleTimeString());
       isSnapshotReadyRef.current = true;
+      hasReceivedInitialSnapshotRef.current = true;
       setIsFirestoreLoaded(true);
       setIsDataLoading(false);
 
@@ -515,12 +523,19 @@ export default function App() {
         unsubscribeDoc();
       }
       isSnapshotReadyRef.current = false;
+      hasReceivedInitialSnapshotRef.current = false;
       setIsFirestoreLoaded(false);
     };
   }, [currentUser?.uid]);
 
   // Sync data to Firestore on local changes (if logged in) with debouncing & payload check
   useEffect(() => {
+    // Guard 0: Absolute block during app/sync initialization
+    if (!hasReceivedInitialSnapshotRef.current) {
+      setIsSyncing(false);
+      return;
+    }
+
     // Guard 1: Must be logged in via auth.currentUser and state, and initial Firestore data must be loaded
     if (!auth.currentUser || !currentUser || !isFirestoreLoaded || !isSnapshotReadyRef.current) {
       if (!auth.currentUser || !currentUser) {
