@@ -288,6 +288,27 @@ export default function App() {
     }, 500);
   };
 
+  const pendingSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper: Create normalized canonical payload string for accurate equality checks
+  const createNormalizedPayloadString = (data: {
+    userProfile?: any;
+    items?: any[];
+    yearlyItems?: any[];
+    longTermPlanner?: any;
+    categories?: any[];
+    dailyEvents?: any;
+  }) => {
+    return JSON.stringify({
+      userProfile: data.userProfile || DEFAULT_USER,
+      items: Array.isArray(data.items) ? data.items : [],
+      yearlyItems: Array.isArray(data.yearlyItems) ? data.yearlyItems : [],
+      longTermPlanner: data.longTermPlanner || null,
+      categories: Array.isArray(data.categories) && data.categories.length > 0 ? data.categories : INITIAL_CATEGORIES,
+      dailyEvents: data.dailyEvents && typeof data.dailyEvents === 'object' ? data.dailyEvents : {},
+    });
+  };
+
   // 1. LocalStorage Auto-Save Effect (Runs on local state change ONLY when logged in and snapshot is ready)
   useEffect(() => {
     if (!currentUser || !isFirestoreLoaded || !isSnapshotReadyRef.current) return;
@@ -375,7 +396,7 @@ export default function App() {
           dailyEvents: localCache?.dailyEvents || dailyEvents,
         };
 
-        const currentPayload = JSON.stringify(localPayload);
+        const currentPayload = createNormalizedPayloadString(localPayload);
         lastSavedPayloadRef.current = currentPayload;
 
         saveUserDataToFirestore(currentDocId, currentUserPhone || '', localPayload)
@@ -393,9 +414,41 @@ export default function App() {
         return;
       }
 
-      // Otherwise: Remote data is valid and newer or equal -> Apply Remote Data to State and LocalStorage
-      console.log("[Sync Resolution] Firestore 데이터 적용. 불러온 items 개수:", remoteItems.length);
+      // Check if incoming remote payload is identical to our last saved/received payload
+      const receivedItems = remoteItems;
+      const receivedYearlyItems = Array.isArray(data.yearlyItems) ? data.yearlyItems : [];
+      const receivedCategories = Array.isArray(data.categories) && data.categories.length > 0 ? data.categories : INITIAL_CATEGORIES;
+      const receivedDailyEvents = data.dailyEvents && typeof data.dailyEvents === 'object' ? data.dailyEvents : {};
+      const receivedLongTermPlanner = data.longTermPlanner || undefined;
+
+      const incomingPayload = createNormalizedPayloadString({
+        userProfile: data.userProfile || DEFAULT_USER,
+        items: receivedItems,
+        yearlyItems: receivedYearlyItems,
+        longTermPlanner: receivedLongTermPlanner,
+        categories: receivedCategories,
+        dailyEvents: receivedDailyEvents,
+      });
+
+      // 2. Equality Guard: If remote data matches our current active state, skip setState & avoid triggering auto-save
+      if (lastSavedPayloadRef.current === incomingPayload) {
+        console.log("[Sync Resolution] 수신된 원격 데이터가 현재 앱 상태와 동일합니다. setState 업데이트를 스킵합니다.");
+        isSnapshotReadyRef.current = true;
+        setIsFirestoreLoaded(true);
+        setIsDataLoading(false);
+        return;
+      }
+
+      // 3. Remote Update Active: Cancel any pending local auto-save timer immediately
+      if (pendingSaveTimerRef.current) {
+        console.log('[Sync Resolution] 원격 스냅샷 수신 -> 대기 중인 로컬 자동 저장 타이머를 즉시 취소합니다.');
+        clearTimeout(pendingSaveTimerRef.current);
+        pendingSaveTimerRef.current = null;
+      }
+
+      console.log("[Sync Resolution] Firestore 원격 데이터 적용. 불러온 items 개수:", remoteItems.length);
       isRemoteUpdatingRef.current = true;
+      lastSavedPayloadRef.current = incomingPayload;
 
       if (data.phoneNumber) {
         setCurrentUserPhone(data.phoneNumber);
@@ -411,12 +464,6 @@ export default function App() {
         setUserProfile(DEFAULT_USER);
       }
 
-      const receivedItems = remoteItems;
-      const receivedYearlyItems = Array.isArray(data.yearlyItems) ? data.yearlyItems : [];
-      const receivedCategories = Array.isArray(data.categories) && data.categories.length > 0 ? data.categories : INITIAL_CATEGORIES;
-      const receivedDailyEvents = data.dailyEvents && typeof data.dailyEvents === 'object' ? data.dailyEvents : {};
-      const receivedLongTermPlanner = data.longTermPlanner || undefined;
-
       setItems(receivedItems);
       setYearlyItems(receivedYearlyItems);
       setLongTermPlanner(receivedLongTermPlanner);
@@ -424,16 +471,6 @@ export default function App() {
       setDailyEvents(receivedDailyEvents);
 
       console.log("UI 상태 업데이트 완료, 적용된 items 개수:", receivedItems.length);
-
-      const incomingPayload = JSON.stringify({
-        userProfile: data.userProfile || {},
-        items: receivedItems,
-        yearlyItems: receivedYearlyItems,
-        longTermPlanner: receivedLongTermPlanner || null,
-        categories: receivedCategories,
-        dailyEvents: receivedDailyEvents,
-      });
-      lastSavedPayloadRef.current = incomingPayload;
 
       // Save raw snapshot data into LocalStorage cache
       try {
@@ -466,9 +503,10 @@ export default function App() {
       setIsFirestoreLoaded(true);
       setIsDataLoading(false);
 
+      // Release remote updating flag on next tick after React state flush
       setTimeout(() => {
         isRemoteUpdatingRef.current = false;
-      }, 500);
+      }, 0);
     });
 
     return () => {
@@ -492,8 +530,10 @@ export default function App() {
       return;
     }
 
-    // Skip auto-save if state update was triggered by receiving remote data
+    // Guard 2: Skip auto-save if state update was triggered by receiving remote data
     if (isRemoteUpdatingRef.current) {
+      console.log('[Sync] 원격 스냅샷 업데이트 진행 중 - 자동 저장을 차단합니다.');
+      setIsSyncing(false);
       return;
     }
 
@@ -513,19 +553,35 @@ export default function App() {
       dailyEvents,
     };
 
-    const currentPayload = JSON.stringify(payloadObj);
+    const currentPayload = createNormalizedPayloadString(payloadObj);
 
-    // If payload has not changed since last saved/received, do nothing
+    // Guard 3: If payload has not changed since last saved/received, do nothing
     if (lastSavedPayloadRef.current === currentPayload) {
       setIsSyncing(false);
       return;
     }
 
-    const timer = setTimeout(async () => {
-      if (!isFirestoreLoaded || !currentUser || !auth.currentUser) return;
+    // Cancel previous pending save timer if user made new local edit
+    if (pendingSaveTimerRef.current) {
+      clearTimeout(pendingSaveTimerRef.current);
+    }
+
+    pendingSaveTimerRef.current = setTimeout(async () => {
+      // Re-verify flags right before actual network call to ensure no remote update occurred during debounce wait
+      if (!isFirestoreLoaded || !currentUser || !auth.currentUser || isRemoteUpdatingRef.current) {
+        console.log('[Sync] 저장 직전 원격 업데이트 감지 또는 로그인 해제됨 - 자동 저장을 취소합니다.');
+        setIsSyncing(false);
+        return;
+      }
+
+      if (lastSavedPayloadRef.current === currentPayload) {
+        console.log('[Sync] 데이터가 원격 스냅샷과 동일함 - 중복 저장을 취소합니다.');
+        setIsSyncing(false);
+        return;
+      }
 
       setIsSyncing(true);
-      console.log(`[Sync] 데이터 변경 감지 -> Firestore 자동 저장 시작... (items: ${items.length}개)`);
+      console.log(`[Sync] 사용자 데이터 변경 감지 -> Firestore 자동 저장 시작... (items: ${items.length}개)`);
       try {
         await saveUserDataToFirestore(currentDocId, currentUserPhone || '', payloadObj);
         lastSavedPayloadRef.current = currentPayload;
@@ -535,10 +591,16 @@ export default function App() {
         console.error('[Sync] Firestore 자동 저장 중 실패:', err);
       } finally {
         setIsSyncing(false);
+        pendingSaveTimerRef.current = null;
       }
-    }, 300);
+    }, 400);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (pendingSaveTimerRef.current) {
+        clearTimeout(pendingSaveTimerRef.current);
+        pendingSaveTimerRef.current = null;
+      }
+    };
   }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone, activeDocId, isFirestoreLoaded]);
 
   const handleUpdateDailyEvent = (dateStr: string, text: string) => {
