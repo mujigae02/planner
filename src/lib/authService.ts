@@ -155,7 +155,7 @@ export async function saveUserDataToFirestore(
     const rawData = {
       userId: auth.currentUser?.uid || docId,
       phoneNumber: phoneNumber || '소셜 계정',
-      userProfile: data.userProfile,
+      userProfile: data.userProfile || {},
       items: data.items || [],
       yearlyItems: data.yearlyItems || [],
       longTermPlanner: data.longTermPlanner || null,
@@ -166,7 +166,17 @@ export async function saveUserDataToFirestore(
     };
     const sanitizedData = JSON.parse(JSON.stringify(rawData));
     await setDoc(userDocRef, sanitizedData, { merge: true });
+    console.log('[Firestore] 데이터 저장 성공:', {
+      docId,
+      path,
+      itemsCount: data.items?.length || 0,
+      yearlyItemsCount: data.yearlyItems?.length || 0,
+      categoriesCount: data.categories?.length || 0,
+      hasLongTermPlanner: Boolean(data.longTermPlanner),
+      updatedAt: rawData.updatedAt,
+    });
   } catch (error) {
+    console.error('[Firestore] 데이터 저장 실패:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
     throw error;
   }
@@ -179,6 +189,7 @@ export function subscribeToUserPlanner(
 ) {
   if (!docId) return () => {};
   const path = `userPlanners/${docId}`;
+  console.log('[Firestore] 실시간 구독 시작:', path);
   try {
     const userDocRef = doc(db, 'userPlanners', docId);
     return onSnapshot(
@@ -186,17 +197,27 @@ export function subscribeToUserPlanner(
       (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data() as UserPlannerData;
+          console.log('[Firestore] 실시간 동기화 데이터 수신:', {
+            docId,
+            itemsCount: data.items?.length || 0,
+            yearlyItemsCount: data.yearlyItems?.length || 0,
+            categoriesCount: data.categories?.length || 0,
+            hasLongTermPlanner: Boolean(data.longTermPlanner),
+            updatedAt: data.updatedAt,
+          });
           onData(data, true);
         } else {
+          console.log('[Firestore] 실시간 구독: 문서가 존재하지 않음', docId);
           onData({} as UserPlannerData, false);
         }
       },
       (error) => {
+        console.error('[Firestore] 실시간 동기화 에러:', error);
         handleFirestoreError(error, OperationType.GET, path);
       }
     );
   } catch (err) {
-    console.warn('Failed to subscribe to user planner:', err);
+    console.error('[Firestore] 구독 설정 중 예외 발생:', err);
     return () => {};
   }
 }

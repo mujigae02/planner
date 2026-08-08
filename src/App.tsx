@@ -241,19 +241,26 @@ export default function App() {
       if (longTermPlanner) {
         localStorage.setItem(STORAGE_KEYS.LONG_TERM_PLANNER, JSON.stringify(longTermPlanner));
       }
+      console.log('[LocalStorage] 로컬 데이터 캐싱 완료 (백업)');
     } catch (e) {
-      console.error('Local data saving failed', e);
+      console.error('[LocalStorage] 로컬 데이터 저장 실패:', e);
     }
   }, [userProfile, items, yearlyItems, categories, dailyEvents, longTermPlanner]);
 
   // Subscribe to user Firestore planner document when logged in
   useEffect(() => {
     const currentDocId = activeDocId || localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
-    if (!currentDocId) return;
+    if (!currentDocId) {
+      console.log('[Sync] 로그인 정보 또는 activeDocId가 없어 Firestore 실시간 구독을 대기합니다.');
+      return;
+    }
+
+    console.log('[Sync] Firestore 구독 시작. docId:', currentDocId);
 
     const unsubscribeDoc = subscribeToUserPlanner(currentDocId, (data, exists) => {
       if (!exists) {
         // Document does not exist in Firestore yet -> Push local data to Firestore
+        console.log('[Sync] Firestore 문서가 없어 로컬 데이터로 새로 생성합니다.');
         const currentPayload = JSON.stringify({
           userProfile,
           items,
@@ -270,7 +277,7 @@ export default function App() {
           longTermPlanner,
           categories,
           dailyEvents,
-        }).catch(err => console.error('Initial push error:', err));
+        }).catch(err => console.error('[Sync] Firestore 초기 문서 생성 에러:', err));
         return;
       }
 
@@ -290,6 +297,7 @@ export default function App() {
         return;
       }
 
+      console.log('[Sync] Firestore 최신 수신 데이터로 UI 및 로컬 데이터 업데이트 중...');
       isRemoteUpdatingRef.current = true;
       lastSavedPayloadRef.current = incomingPayload;
 
@@ -363,6 +371,7 @@ export default function App() {
       if (isRemoteUpdatingRef.current) return;
 
       setIsSyncing(true);
+      console.log('[Sync] 데이터 변경 감지 -> Firestore 자동 저장 시작...');
       try {
         await saveUserDataToFirestore(currentDocId, currentUserPhone || '', {
           userProfile,
@@ -374,12 +383,13 @@ export default function App() {
         });
         lastSavedPayloadRef.current = currentPayload;
         setLastSyncedAt(new Date().toLocaleTimeString());
+        console.log('[Sync] Firestore 자동 저장 완료!');
       } catch (err) {
-        console.error('Firestore sync error:', err);
+        console.error('[Sync] Firestore 자동 저장 중 실패:', err);
       } finally {
         setIsSyncing(false);
       }
-    }, 400);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone, activeDocId]);
