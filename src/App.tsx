@@ -173,6 +173,7 @@ export default function App() {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       if (user) {
+        console.log("현재 연동된 유저 UID:", user.uid);
         const docId = user.uid;
         const accountName = user.email
           ? `${user.displayName || user.email.split('@')[0]} (${user.email})`
@@ -189,15 +190,20 @@ export default function App() {
           avatarUrl: user.photoURL || prev.avatarUrl || '',
         }));
       } else {
-        const storedPhone = localStorage.getItem('lux_active_phone');
-        const storedDocId = localStorage.getItem('lux_active_phone_docId');
-        if (storedPhone && storedDocId) {
-          setCurrentUserPhone(storedPhone);
-          setActiveDocId(storedDocId);
-        } else {
-          setCurrentUserPhone(null);
-          setActiveDocId('');
-        }
+        console.log('[Auth] 로그아웃 상태');
+        setCurrentUserPhone(null);
+        setActiveDocId('');
+        localStorage.removeItem('lux_active_phone_docId');
+        localStorage.removeItem('lux_active_phone');
+        localStorage.removeItem('plannerData');
+
+        // Safety reset state on logout
+        setUserProfile(DEFAULT_USER);
+        setItems([]);
+        setYearlyItems([]);
+        setCategories(INITIAL_CATEGORIES);
+        setDailyEvents({});
+        setLongTermPlanner(undefined);
       }
       setIsAuthLoading(false);
     });
@@ -282,13 +288,13 @@ export default function App() {
 
   // Subscribe to user Firestore planner document when logged in
   useEffect(() => {
-    const currentDocId = activeDocId || localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
+    const currentDocId = currentUser?.uid || activeDocId;
     if (!currentDocId) {
-      console.log('[Sync] 로그인 정보 또는 activeDocId가 없어 Firestore 실시간 구독을 대기합니다.');
+      console.log('[Sync] 로그인 정보가 없어 Firestore 실시간 구독을 대기합니다.');
       return;
     }
 
-    console.log('[Sync] Firestore 구독 시작. docId:', currentDocId);
+    console.log('[Sync] Firestore 구독 시작. UID:', currentDocId);
 
     const unsubscribeDoc = subscribeToUserPlanner(currentDocId, (data, exists) => {
       if (!exists) {
@@ -381,7 +387,7 @@ export default function App() {
 
   // Sync data to Firestore on local changes (if logged in) with debouncing & payload check
   useEffect(() => {
-    const currentDocId = activeDocId || localStorage.getItem('lux_active_phone_docId') || currentUser?.uid;
+    const currentDocId = currentUser?.uid || activeDocId;
 
     if (!currentDocId) {
       setIsSyncing(false);

@@ -148,12 +148,13 @@ export async function saveUserDataToFirestore(
     dailyEvents: DailyEvents;
   }
 ) {
-  if (!docId) return;
-  const path = `userPlanners/${docId}`;
+  const targetUid = docId || auth.currentUser?.uid;
+  if (!targetUid) return;
+  const path = `userPlanners/${targetUid}`;
   try {
-    const userDocRef = doc(db, 'userPlanners', docId);
+    const userDocRef = doc(db, 'userPlanners', targetUid);
     const rawData = {
-      userId: auth.currentUser?.uid || docId,
+      userId: targetUid,
       phoneNumber: phoneNumber || '소셜 계정',
       userProfile: data.userProfile || {},
       items: data.items || [],
@@ -166,7 +167,7 @@ export async function saveUserDataToFirestore(
     };
     const sanitizedData = JSON.parse(JSON.stringify(rawData));
     await setDoc(userDocRef, sanitizedData, { merge: true });
-    console.log('[Firestore] 데이터 저장 성공:', sanitizedData);
+    console.log("Firestore 저장 성공 (UID):", targetUid);
   } catch (error) {
     console.error('[Firestore] 데이터 저장 실패:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -179,20 +180,21 @@ export function subscribeToUserPlanner(
   docId: string,
   onData: (data: UserPlannerData, exists: boolean) => void
 ) {
-  if (!docId) return () => {};
-  const path = `userPlanners/${docId}`;
+  const targetUid = docId || auth.currentUser?.uid;
+  if (!targetUid) return () => {};
+  const path = `userPlanners/${targetUid}`;
   console.log('[Firestore] 실시간 구독 시작:', path);
   try {
-    const userDocRef = doc(db, 'userPlanners', docId);
+    const userDocRef = doc(db, 'userPlanners', targetUid);
     return onSnapshot(
       userDocRef,
       (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data() as UserPlannerData;
-          console.log('Firestore 불러오기 성공:', snapshot.data());
+          console.log("Firestore 실시간 데이터 수신 성공:", data);
           onData(data, true);
         } else {
-          console.log('[Firestore] 실시간 구독: 문서가 존재하지 않음', docId);
+          console.log('[Firestore] 실시간 구독: 문서가 존재하지 않음', targetUid);
           onData({} as UserPlannerData, false);
         }
       },
