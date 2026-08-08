@@ -48,6 +48,7 @@ export default function App() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const isRemoteUpdatingRef = useRef(false);
+  const isSnapshotReadyRef = useRef(false);
   const lastSavedPayloadRef = useRef<string>('');
 
   // 1. 상태 정의 (LocalStorage plannerData 캐시 또는 기존 백업 키 / Remote)
@@ -291,6 +292,7 @@ export default function App() {
     const currentDocId = currentUser?.uid || activeDocId;
     if (!currentDocId) {
       console.log('[Sync] 로그인 정보가 없어 Firestore 실시간 구독을 대기합니다.');
+      isSnapshotReadyRef.current = false;
       return;
     }
 
@@ -316,6 +318,8 @@ export default function App() {
           longTermPlanner,
           categories,
           dailyEvents,
+        }).then(() => {
+          isSnapshotReadyRef.current = true;
         }).catch(err => console.error('[Sync] Firestore 초기 문서 생성 에러:', err));
         return;
       }
@@ -340,6 +344,7 @@ export default function App() {
       // If incoming payload is identical to what we last saved or received, skip local updates
       if (incomingPayload === lastSavedPayloadRef.current) {
         setLastSyncedAt(new Date().toLocaleTimeString());
+        isSnapshotReadyRef.current = true;
         return;
       }
 
@@ -376,20 +381,24 @@ export default function App() {
       }
 
       setLastSyncedAt(new Date().toLocaleTimeString());
+      isSnapshotReadyRef.current = true;
 
       setTimeout(() => {
         isRemoteUpdatingRef.current = false;
       }, 500);
     });
 
-    return () => unsubscribeDoc();
+    return () => {
+      unsubscribeDoc();
+      isSnapshotReadyRef.current = false;
+    };
   }, [activeDocId, currentUser]);
 
   // Sync data to Firestore on local changes (if logged in) with debouncing & payload check
   useEffect(() => {
     const currentDocId = currentUser?.uid || activeDocId;
 
-    if (!currentDocId) {
+    if (!currentDocId || !isSnapshotReadyRef.current) {
       setIsSyncing(false);
       return;
     }
@@ -414,7 +423,7 @@ export default function App() {
     }
 
     const timer = setTimeout(async () => {
-      if (isRemoteUpdatingRef.current) return;
+      if (isRemoteUpdatingRef.current || !isSnapshotReadyRef.current) return;
 
       setIsSyncing(true);
       console.log('[Sync] 데이터 변경 감지 -> Firestore 자동 저장 시작...');

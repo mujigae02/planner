@@ -167,7 +167,7 @@ export async function saveUserDataToFirestore(
     };
     const sanitizedData = JSON.parse(JSON.stringify(rawData));
     await setDoc(userDocRef, sanitizedData, { merge: true });
-    console.log("Firestore 저장 성공 (UID):", targetUid);
+    console.log("Firestore 저장 완료 (UID):", targetUid, sanitizedData);
   } catch (error) {
     console.error('[Firestore] 데이터 저장 실패:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
