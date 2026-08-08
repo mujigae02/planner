@@ -492,6 +492,11 @@ export default function App() {
       return;
     }
 
+    // Skip auto-save if state update was triggered by receiving remote data
+    if (isRemoteUpdatingRef.current) {
+      return;
+    }
+
     const currentDocId = currentUser?.uid || activeDocId;
 
     if (!currentDocId || !isSnapshotReadyRef.current) {
@@ -499,14 +504,16 @@ export default function App() {
       return;
     }
 
-    const currentPayload = JSON.stringify({
+    const payloadObj = {
       userProfile,
       items,
       yearlyItems,
       longTermPlanner,
       categories,
       dailyEvents,
-    });
+    };
+
+    const currentPayload = JSON.stringify(payloadObj);
 
     // If payload has not changed since last saved/received, do nothing
     if (lastSavedPayloadRef.current === currentPayload) {
@@ -514,27 +521,16 @@ export default function App() {
       return;
     }
 
-    if (isRemoteUpdatingRef.current) {
-      return;
-    }
-
     const timer = setTimeout(async () => {
-      if (!isFirestoreLoaded || !currentUser || isRemoteUpdatingRef.current || !isSnapshotReadyRef.current) return;
+      if (!isFirestoreLoaded || !currentUser || !auth.currentUser) return;
 
       setIsSyncing(true);
-      console.log('[Sync] 데이터 변경 감지 -> Firestore 자동 저장 시작...');
+      console.log(`[Sync] 데이터 변경 감지 -> Firestore 자동 저장 시작... (items: ${items.length}개)`);
       try {
-        await saveUserDataToFirestore(currentDocId, currentUserPhone || '', {
-          userProfile,
-          items,
-          yearlyItems,
-          longTermPlanner,
-          categories,
-          dailyEvents,
-        });
+        await saveUserDataToFirestore(currentDocId, currentUserPhone || '', payloadObj);
         lastSavedPayloadRef.current = currentPayload;
         setLastSyncedAt(new Date().toLocaleTimeString());
-        console.log('[Sync] Firestore 자동 저장 완료!');
+        console.log(`[Sync] Firestore 자동 저장 성공! (items: ${items.length}개)`);
       } catch (err) {
         console.error('[Sync] Firestore 자동 저장 중 실패:', err);
       } finally {
@@ -667,6 +663,7 @@ export default function App() {
       updateScope?: 'single' | 'all' | 'convertToRecurring';
     }
   ) => {
+    isRemoteUpdatingRef.current = false;
     if (!itemData.title || !itemData.date) return;
 
     if (itemData.id) {
@@ -880,6 +877,7 @@ export default function App() {
 
   // 7. 일정 삭제
   const handleDeleteItem = (id: string, deleteScope: 'single' | 'all' = 'single') => {
+    isRemoteUpdatingRef.current = false;
     const targetItem = items.find((it) => it.id === id);
     if (!targetItem) return;
 
