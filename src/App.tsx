@@ -293,6 +293,7 @@ export default function App() {
     if (!currentUser || !isFirestoreLoaded || !isSnapshotReadyRef.current) return;
 
     try {
+      const nowIso = new Date().toISOString();
       const fullData = {
         userProfile,
         items,
@@ -300,8 +301,10 @@ export default function App() {
         categories,
         dailyEvents,
         longTermPlanner,
+        updatedAt: nowIso,
       };
       localStorage.setItem('plannerData', JSON.stringify(fullData));
+      localStorage.setItem('lux_last_updated_at', nowIso);
       localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
       localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
       localStorage.setItem(STORAGE_KEYS.YEARLY_ITEMS, JSON.stringify(yearlyItems));
@@ -310,7 +313,7 @@ export default function App() {
       if (longTermPlanner) {
         localStorage.setItem(STORAGE_KEYS.LONG_TERM_PLANNER, JSON.stringify(longTermPlanner));
       }
-      console.log('[LocalStorage] 로컬 데이터 캐싱 완료 (plannerData)');
+      console.log('[LocalStorage] 로컬 데이터 캐싱 완료 (plannerData, items:', items.length, ')');
     } catch (e) {
       console.error('[LocalStorage] 로컬 데이터 저장 실패:', e);
     }
@@ -318,7 +321,7 @@ export default function App() {
 
   // Subscribe to user Firestore planner document when logged in
   useEffect(() => {
-    const currentDocId = currentUser?.uid || activeDocId;
+    const currentDocId = currentUser?.uid;
     if (!currentDocId) {
       console.log('[Sync] 로그인 정보가 없어 Firestore 실시간 구독을 대기합니다.');
       isSnapshotReadyRef.current = false;
@@ -330,43 +333,70 @@ export default function App() {
     console.log('[Sync] Firestore 구독 시작. UID:', currentDocId);
 
     const unsubscribeDoc = subscribeToUserPlanner(currentDocId, (data, exists) => {
-      if (!exists) {
-        // Document does not exist in Firestore yet -> Push local data to Firestore
-        console.log('[Sync] Firestore 문서가 없어 로컬 데이터로 새로 생성합니다.');
-        const currentPayload = JSON.stringify({
-          userProfile,
-          items,
-          yearlyItems,
-          longTermPlanner,
-          categories,
-          dailyEvents,
-        });
+      // 1. Check local storage cache or current state for conflict resolution
+      let localCache: any = null;
+      try {
+        const raw = localStorage.getItem('plannerData');
+        localCache = raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        console.warn('LocalStorage plannerData parse error:', e);
+      }
+
+      const localItems = Array.isArray(localCache?.items) && localCache.items.length > 0
+        ? localCache.items
+        : items;
+      
+      const localUpdatedAtStr = localCache?.updatedAt || localStorage.getItem('lux_last_updated_at');
+      const localUpdatedAt = localUpdatedAtStr ? new Date(localUpdatedAtStr).getTime() : 0;
+
+      const remoteItems = Array.isArray(data?.items) ? data.items : [];
+      const remoteUpdatedAtStr = data?.updatedAt;
+      const remoteUpdatedAt = remoteUpdatedAtStr ? new Date(remoteUpdatedAtStr).getTime() : 0;
+
+      console.log(`[Sync Conflict Check] Local items: ${localItems.length} (updatedAt: ${localUpdatedAtStr || 'none'})`);
+      console.log(`[Sync Conflict Check] Remote exists: ${exists}, items: ${remoteItems.length} (updatedAt: ${remoteUpdatedAtStr || 'none'})`);
+
+      // Conflict Resolution Logic:
+      // If remote doc does not exist, OR local items exist while remote items are empty, OR local data timestamp is distinctly newer:
+      const shouldPushLocal =
+        !exists ||
+        (localItems.length > 0 && remoteItems.length === 0) ||
+        (localUpdatedAt > 0 && remoteUpdatedAt > 0 && localUpdatedAt > remoteUpdatedAt);
+
+      if (shouldPushLocal && localItems.length > 0) {
+        console.log(`[Sync Resolution] 로컬 데이터가 더 최신이거나 서버 데이터가 비어있습니다. 로컬 데이터(${localItems.length}개)를 Firestore로 업로드합니다.`);
+        
+        const localPayload = {
+          userProfile: localCache?.userProfile || userProfile,
+          items: localItems,
+          yearlyItems: localCache?.yearlyItems || yearlyItems,
+          longTermPlanner: localCache?.longTermPlanner || longTermPlanner,
+          categories: localCache?.categories || categories,
+          dailyEvents: localCache?.dailyEvents || dailyEvents,
+        };
+
+        const currentPayload = JSON.stringify(localPayload);
         lastSavedPayloadRef.current = currentPayload;
-        saveUserDataToFirestore(currentDocId, currentUserPhone || '', {
-          userProfile,
-          items,
-          yearlyItems,
-          longTermPlanner,
-          categories,
-          dailyEvents,
-        }).then(() => {
-          isSnapshotReadyRef.current = true;
-          setIsFirestoreLoaded(true);
-          setIsDataLoading(false);
-        }).catch(err => {
-          console.error('[Sync] Firestore 초기 문서 생성 에러:', err);
-          isSnapshotReadyRef.current = true;
-          setIsFirestoreLoaded(true);
-          setIsDataLoading(false);
-        });
+
+        saveUserDataToFirestore(currentDocId, currentUserPhone || '', localPayload)
+          .then(() => {
+            isSnapshotReadyRef.current = true;
+            setIsFirestoreLoaded(true);
+            setIsDataLoading(false);
+          })
+          .catch((err) => {
+            console.error('[Sync] Firestore 로컬 데이터 동기화 업로드 실패:', err);
+            isSnapshotReadyRef.current = true;
+            setIsFirestoreLoaded(true);
+            setIsDataLoading(false);
+          });
         return;
       }
 
-      console.log("Firestore 실시간 데이터 수신 성공:", data);
-      console.log("불러온 items 개수:", data?.items?.length || 0);
+      // Otherwise: Remote data is valid and newer or equal -> Apply Remote Data to State and LocalStorage
+      console.log("[Sync Resolution] Firestore 데이터 적용. 불러온 items 개수:", remoteItems.length);
       isRemoteUpdatingRef.current = true;
 
-      // Force state update 100% with snapshot data
       if (data.phoneNumber) {
         setCurrentUserPhone(data.phoneNumber);
         localStorage.setItem('lux_active_phone', data.phoneNumber);
@@ -381,10 +411,10 @@ export default function App() {
         setUserProfile(DEFAULT_USER);
       }
 
-      const receivedItems = Array.isArray(data.items) ? data.items : [];
+      const receivedItems = remoteItems;
       const receivedYearlyItems = Array.isArray(data.yearlyItems) ? data.yearlyItems : [];
       const receivedCategories = Array.isArray(data.categories) && data.categories.length > 0 ? data.categories : INITIAL_CATEGORIES;
-      const receivedDailyEvents = data.dailyEvents || {};
+      const receivedDailyEvents = data.dailyEvents && typeof data.dailyEvents === 'object' ? data.dailyEvents : {};
       const receivedLongTermPlanner = data.longTermPlanner || undefined;
 
       setItems(receivedItems);
@@ -407,7 +437,26 @@ export default function App() {
 
       // Save raw snapshot data into LocalStorage cache
       try {
-        localStorage.setItem('plannerData', JSON.stringify(data));
+        const nowIso = data.updatedAt || new Date().toISOString();
+        const cachePayload = {
+          userProfile: data.userProfile || DEFAULT_USER,
+          items: receivedItems,
+          yearlyItems: receivedYearlyItems,
+          categories: receivedCategories,
+          dailyEvents: receivedDailyEvents,
+          longTermPlanner: receivedLongTermPlanner,
+          updatedAt: nowIso,
+        };
+        localStorage.setItem('plannerData', JSON.stringify(cachePayload));
+        localStorage.setItem('lux_last_updated_at', nowIso);
+        localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(data.userProfile || DEFAULT_USER));
+        localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(receivedItems));
+        localStorage.setItem(STORAGE_KEYS.YEARLY_ITEMS, JSON.stringify(receivedYearlyItems));
+        localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(receivedCategories));
+        localStorage.setItem(STORAGE_KEYS.DAILY_EVENTS, JSON.stringify(receivedDailyEvents));
+        if (receivedLongTermPlanner) {
+          localStorage.setItem(STORAGE_KEYS.LONG_TERM_PLANNER, JSON.stringify(receivedLongTermPlanner));
+        }
       } catch (e) {
         console.error('[LocalStorage] plannerData 캐시 저장 실패:', e);
       }
@@ -423,11 +472,14 @@ export default function App() {
     });
 
     return () => {
-      unsubscribeDoc();
+      console.log('[Sync] Firestore 구독 해제 (UID:', currentDocId, ')');
+      if (typeof unsubscribeDoc === 'function') {
+        unsubscribeDoc();
+      }
       isSnapshotReadyRef.current = false;
       setIsFirestoreLoaded(false);
     };
-  }, [activeDocId, currentUser]);
+  }, [currentUser?.uid]);
 
   // Sync data to Firestore on local changes (if logged in) with debouncing & payload check
   useEffect(() => {
