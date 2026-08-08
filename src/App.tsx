@@ -253,6 +253,7 @@ export default function App() {
   const handleLogout = async () => {
     isRemoteUpdatingRef.current = true;
     isSnapshotReadyRef.current = false;
+    setIsFirestoreLoaded(false);
 
     // Clear all LocalStorage keys completely
     localStorage.removeItem('plannerData');
@@ -265,11 +266,15 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
     localStorage.removeItem(STORAGE_KEYS.DAILY_EVENTS);
 
+    // 1. Sign out from Firebase Auth first to terminate session
     await logoutUser();
+
+    // 2. Clear Auth/User state
     setActiveDocId('');
     setCurrentUserPhone(null);
     setCurrentUser(null);
 
+    // 3. Reset UI data state
     setUserProfile(DEFAULT_USER);
     setItems([]);
     setYearlyItems([]);
@@ -277,7 +282,6 @@ export default function App() {
     setDailyEvents({});
     setLongTermPlanner(undefined);
     setIsDataLoading(false);
-    setIsFirestoreLoaded(false);
 
     setTimeout(() => {
       isRemoteUpdatingRef.current = false;
@@ -418,8 +422,11 @@ export default function App() {
 
   // Sync data to Firestore on local changes (if logged in) with debouncing & payload check
   useEffect(() => {
-    // Guard: Do NOT save to Firestore unless initial Firestore data has been loaded and user is authenticated
-    if (!isFirestoreLoaded || !currentUser) {
+    // Guard 1: Must be logged in via auth.currentUser and state, and initial Firestore data must be loaded
+    if (!auth.currentUser || !currentUser || !isFirestoreLoaded || !isSnapshotReadyRef.current) {
+      if (!auth.currentUser || !currentUser) {
+        console.log("비로그인 상태이므로 Firestore 저장을 건너띕니다.");
+      }
       setIsSyncing(false);
       return;
     }

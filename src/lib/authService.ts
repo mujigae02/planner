@@ -148,7 +148,11 @@ export async function saveUserDataToFirestore(
     dailyEvents: DailyEvents;
   }
 ) {
-  const targetUid = docId || auth.currentUser?.uid;
+  if (!auth.currentUser) {
+    console.log("비로그인 상태이므로 Firestore 저장을 건너띕니다.");
+    return;
+  }
+  const targetUid = docId || auth.currentUser.uid;
   if (!targetUid) return;
   const path = `userPlanners/${targetUid}`;
   try {
