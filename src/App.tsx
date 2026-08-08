@@ -155,6 +155,7 @@ export default function App() {
   const [activeDocId, setActiveDocId] = useState<string>(() => localStorage.getItem('lux_active_phone_docId') || '');
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [isDataLoading, setIsDataLoading] = useState<boolean>(false);
+  const [isFirestoreLoaded, setIsFirestoreLoaded] = useState<boolean>(false);
 
   // 클립보드 복사된 하루 일정 상태
   const [copiedDayItems, setCopiedDayItems] = useState<ScheduleItem[] | null>(null);
@@ -197,6 +198,7 @@ export default function App() {
         setCurrentUserPhone(null);
         setActiveDocId('');
         setIsDataLoading(false);
+        setIsFirestoreLoaded(false);
         isSnapshotReadyRef.current = false;
 
         // Clear local storage cache completely on logout
@@ -275,6 +277,7 @@ export default function App() {
     setDailyEvents({});
     setLongTermPlanner(undefined);
     setIsDataLoading(false);
+    setIsFirestoreLoaded(false);
 
     setTimeout(() => {
       isRemoteUpdatingRef.current = false;
@@ -283,7 +286,7 @@ export default function App() {
 
   // 1. LocalStorage Auto-Save Effect (Runs on local state change ONLY when logged in and snapshot is ready)
   useEffect(() => {
-    if (!currentUser || !isSnapshotReadyRef.current) return;
+    if (!currentUser || !isFirestoreLoaded || !isSnapshotReadyRef.current) return;
 
     try {
       const fullData = {
@@ -307,7 +310,7 @@ export default function App() {
     } catch (e) {
       console.error('[LocalStorage] 로컬 데이터 저장 실패:', e);
     }
-  }, [userProfile, items, yearlyItems, categories, dailyEvents, longTermPlanner, currentUser]);
+  }, [userProfile, items, yearlyItems, categories, dailyEvents, longTermPlanner, currentUser, isFirestoreLoaded]);
 
   // Subscribe to user Firestore planner document when logged in
   useEffect(() => {
@@ -316,6 +319,7 @@ export default function App() {
       console.log('[Sync] 로그인 정보가 없어 Firestore 실시간 구독을 대기합니다.');
       isSnapshotReadyRef.current = false;
       setIsDataLoading(false);
+      setIsFirestoreLoaded(false);
       return;
     }
 
@@ -343,10 +347,12 @@ export default function App() {
           dailyEvents,
         }).then(() => {
           isSnapshotReadyRef.current = true;
+          setIsFirestoreLoaded(true);
           setIsDataLoading(false);
         }).catch(err => {
           console.error('[Sync] Firestore 초기 문서 생성 에러:', err);
           isSnapshotReadyRef.current = true;
+          setIsFirestoreLoaded(true);
           setIsDataLoading(false);
         });
         return;
@@ -395,6 +401,7 @@ export default function App() {
 
       setLastSyncedAt(new Date().toLocaleTimeString());
       isSnapshotReadyRef.current = true;
+      setIsFirestoreLoaded(true);
       setIsDataLoading(false);
 
       setTimeout(() => {
@@ -405,11 +412,18 @@ export default function App() {
     return () => {
       unsubscribeDoc();
       isSnapshotReadyRef.current = false;
+      setIsFirestoreLoaded(false);
     };
   }, [activeDocId, currentUser]);
 
   // Sync data to Firestore on local changes (if logged in) with debouncing & payload check
   useEffect(() => {
+    // Guard: Do NOT save to Firestore unless initial Firestore data has been loaded and user is authenticated
+    if (!isFirestoreLoaded || !currentUser) {
+      setIsSyncing(false);
+      return;
+    }
+
     const currentDocId = currentUser?.uid || activeDocId;
 
     if (!currentDocId || !isSnapshotReadyRef.current) {
@@ -437,7 +451,7 @@ export default function App() {
     }
 
     const timer = setTimeout(async () => {
-      if (isRemoteUpdatingRef.current || !isSnapshotReadyRef.current) return;
+      if (!isFirestoreLoaded || !currentUser || isRemoteUpdatingRef.current || !isSnapshotReadyRef.current) return;
 
       setIsSyncing(true);
       console.log('[Sync] 데이터 변경 감지 -> Firestore 자동 저장 시작...');
@@ -461,7 +475,7 @@ export default function App() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone, activeDocId]);
+  }, [userProfile, items, yearlyItems, longTermPlanner, categories, dailyEvents, currentUser, currentUserPhone, activeDocId, isFirestoreLoaded]);
 
   const handleUpdateDailyEvent = (dateStr: string, text: string) => {
     setDailyEvents((prev) => ({
@@ -939,7 +953,7 @@ export default function App() {
     }
   };
 
-  if (isAuthLoading || (currentUser && isDataLoading)) {
+  if (isAuthLoading || (currentUser && (!isFirestoreLoaded || isDataLoading))) {
     return (
       <div className="min-h-screen bg-[#F8F7F4] flex flex-col items-center justify-center p-6 font-sans-kr text-[#2D2926]">
         <div className="flex flex-col items-center gap-4 p-8 bg-white/90 rounded-3xl border border-[#E5E1DA] shadow-lg backdrop-blur-xs max-w-sm w-full text-center">
