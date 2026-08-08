@@ -30,6 +30,15 @@ const STORAGE_KEYS = {
   DAILY_EVENTS: 'lux_life_planner_daily_events_v2',
 };
 
+function getPlannerDataCache(): any {
+  try {
+    const raw = localStorage.getItem('plannerData');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   // Auth & Sync state
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -41,9 +50,11 @@ export default function App() {
   const isRemoteUpdatingRef = useRef(false);
   const lastSavedPayloadRef = useRef<string>('');
 
-  // 1. 상태 정의 (LocalStorage / Remote)
+  // 1. 상태 정의 (LocalStorage plannerData 캐시 또는 기존 백업 키 / Remote)
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     try {
+      const cache = getPlannerDataCache();
+      if (cache?.userProfile) return cache.userProfile;
       const saved = localStorage.getItem(STORAGE_KEYS.PROFILE);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -63,6 +74,10 @@ export default function App() {
 
   const [items, setItems] = useState<ScheduleItem[]>(() => {
     try {
+      const cache = getPlannerDataCache();
+      if (cache?.items && Array.isArray(cache.items)) {
+        return cache.items.filter((item: ScheduleItem) => !item.id.startsWith('sample-'));
+      }
       const saved = localStorage.getItem(STORAGE_KEYS.ITEMS);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -80,6 +95,8 @@ export default function App() {
 
   const [categories, setCategories] = useState<CategoryItem[]>(() => {
     try {
+      const cache = getPlannerDataCache();
+      if (cache?.categories && Array.isArray(cache.categories)) return cache.categories;
       const saved = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
       if (saved) return JSON.parse(saved);
       return INITIAL_CATEGORIES;
@@ -90,6 +107,8 @@ export default function App() {
 
   const [dailyEvents, setDailyEvents] = useState<DailyEvents>(() => {
     try {
+      const cache = getPlannerDataCache();
+      if (cache?.dailyEvents) return cache.dailyEvents;
       const saved = localStorage.getItem(STORAGE_KEYS.DAILY_EVENTS);
       return saved ? JSON.parse(saved) : {};
     } catch {
@@ -99,6 +118,8 @@ export default function App() {
 
   const [yearlyItems, setYearlyItems] = useState<YearlyScheduleItem[]>(() => {
     try {
+      const cache = getPlannerDataCache();
+      if (cache?.yearlyItems && Array.isArray(cache.yearlyItems)) return cache.yearlyItems;
       const saved = localStorage.getItem(STORAGE_KEYS.YEARLY_ITEMS);
       return saved ? JSON.parse(saved) : [];
     } catch {
@@ -108,6 +129,8 @@ export default function App() {
 
   const [longTermPlanner, setLongTermPlanner] = useState<LongTermPlannerData | undefined>(() => {
     try {
+      const cache = getPlannerDataCache();
+      if (cache?.longTermPlanner) return cache.longTermPlanner;
       const saved = localStorage.getItem(STORAGE_KEYS.LONG_TERM_PLANNER);
       return saved ? JSON.parse(saved) : undefined;
     } catch {
@@ -209,6 +232,7 @@ export default function App() {
     isRemoteUpdatingRef.current = true;
     localStorage.removeItem('lux_active_phone_docId');
     localStorage.removeItem('lux_active_phone');
+    localStorage.removeItem('plannerData');
     localStorage.removeItem(STORAGE_KEYS.PROFILE);
     localStorage.removeItem(STORAGE_KEYS.YEARLY_ITEMS);
     localStorage.removeItem(STORAGE_KEYS.LONG_TERM_PLANNER);
@@ -233,6 +257,15 @@ export default function App() {
   // 1. LocalStorage Auto-Save Effect (Runs on any local state change)
   useEffect(() => {
     try {
+      const fullData = {
+        userProfile,
+        items,
+        yearlyItems,
+        categories,
+        dailyEvents,
+        longTermPlanner,
+      };
+      localStorage.setItem('plannerData', JSON.stringify(fullData));
       localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
       localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
       localStorage.setItem(STORAGE_KEYS.YEARLY_ITEMS, JSON.stringify(yearlyItems));
@@ -241,7 +274,7 @@ export default function App() {
       if (longTermPlanner) {
         localStorage.setItem(STORAGE_KEYS.LONG_TERM_PLANNER, JSON.stringify(longTermPlanner));
       }
-      console.log('[LocalStorage] 로컬 데이터 캐싱 완료 (백업)');
+      console.log('[LocalStorage] 로컬 데이터 캐싱 완료 (plannerData)');
     } catch (e) {
       console.error('[LocalStorage] 로컬 데이터 저장 실패:', e);
     }
@@ -290,6 +323,13 @@ export default function App() {
         categories: data.categories || [],
         dailyEvents: data.dailyEvents || {},
       });
+
+      // Save raw snapshot data into LocalStorage cache for fallback
+      try {
+        localStorage.setItem('plannerData', JSON.stringify(data));
+      } catch (e) {
+        console.error('[LocalStorage] plannerData 캐시 저장 실패:', e);
+      }
 
       // If incoming payload is identical to what we last saved or received, skip local updates
       if (incomingPayload === lastSavedPayloadRef.current) {

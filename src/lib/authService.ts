@@ -166,15 +166,7 @@ export async function saveUserDataToFirestore(
     };
     const sanitizedData = JSON.parse(JSON.stringify(rawData));
     await setDoc(userDocRef, sanitizedData, { merge: true });
-    console.log('[Firestore] 데이터 저장 성공:', {
-      docId,
-      path,
-      itemsCount: data.items?.length || 0,
-      yearlyItemsCount: data.yearlyItems?.length || 0,
-      categoriesCount: data.categories?.length || 0,
-      hasLongTermPlanner: Boolean(data.longTermPlanner),
-      updatedAt: rawData.updatedAt,
-    });
+    console.log('[Firestore] 데이터 저장 성공:', sanitizedData);
   } catch (error) {
     console.error('[Firestore] 데이터 저장 실패:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -197,14 +189,7 @@ export function subscribeToUserPlanner(
       (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data() as UserPlannerData;
-          console.log('[Firestore] 실시간 동기화 데이터 수신:', {
-            docId,
-            itemsCount: data.items?.length || 0,
-            yearlyItemsCount: data.yearlyItems?.length || 0,
-            categoriesCount: data.categories?.length || 0,
-            hasLongTermPlanner: Boolean(data.longTermPlanner),
-            updatedAt: data.updatedAt,
-          });
+          console.log('Firestore 불러오기 성공:', snapshot.data());
           onData(data, true);
         } else {
           console.log('[Firestore] 실시간 구독: 문서가 존재하지 않음', docId);
@@ -212,7 +197,7 @@ export function subscribeToUserPlanner(
         }
       },
       (error) => {
-        console.error('[Firestore] 실시간 동기화 에러:', error);
+        console.error('Firestore 동기화 실패:', error);
         handleFirestoreError(error, OperationType.GET, path);
       }
     );
