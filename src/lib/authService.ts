@@ -197,6 +197,7 @@ export function subscribeToUserPlanner(
         if (snapshot.exists()) {
           const data = snapshot.data() as UserPlannerData;
           console.log("Firestore 실시간 데이터 수신 성공:", data);
+          console.log("불러온 items 개수:", data?.items?.length || 0);
           onData(data, true);
         } else {
           console.log('[Firestore] 실시간 구독: 문서가 존재하지 않음', targetUid);

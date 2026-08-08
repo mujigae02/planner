@@ -363,6 +363,7 @@ export default function App() {
       }
 
       console.log("Firestore 실시간 데이터 수신 성공:", data);
+      console.log("불러온 items 개수:", data?.items?.length || 0);
       isRemoteUpdatingRef.current = true;
 
       // Force state update 100% with snapshot data
@@ -380,19 +381,25 @@ export default function App() {
         setUserProfile(DEFAULT_USER);
       }
 
-      setItems(Array.isArray(data.items) ? data.items : []);
-      setYearlyItems(Array.isArray(data.yearlyItems) ? data.yearlyItems : []);
-      setLongTermPlanner(data.longTermPlanner || undefined);
-      setCategories(Array.isArray(data.categories) && data.categories.length > 0 ? data.categories : INITIAL_CATEGORIES);
-      setDailyEvents(data.dailyEvents || {});
+      const receivedItems = Array.isArray(data.items) ? data.items : [];
+      const receivedYearlyItems = Array.isArray(data.yearlyItems) ? data.yearlyItems : [];
+      const receivedCategories = Array.isArray(data.categories) && data.categories.length > 0 ? data.categories : INITIAL_CATEGORIES;
+      const receivedDailyEvents = data.dailyEvents || {};
+      const receivedLongTermPlanner = data.longTermPlanner || undefined;
+
+      setItems(receivedItems);
+      setYearlyItems(receivedYearlyItems);
+      setLongTermPlanner(receivedLongTermPlanner);
+      setCategories(receivedCategories);
+      setDailyEvents(receivedDailyEvents);
 
       const incomingPayload = JSON.stringify({
         userProfile: data.userProfile || {},
-        items: data.items || [],
-        yearlyItems: data.yearlyItems || [],
-        longTermPlanner: data.longTermPlanner || null,
-        categories: data.categories || [],
-        dailyEvents: data.dailyEvents || {},
+        items: receivedItems,
+        yearlyItems: receivedYearlyItems,
+        longTermPlanner: receivedLongTermPlanner || null,
+        categories: receivedCategories,
+        dailyEvents: receivedDailyEvents,
       });
       lastSavedPayloadRef.current = incomingPayload;
 
