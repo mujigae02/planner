@@ -251,10 +251,42 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    // Save any pending local user edits to Firestore BEFORE logging out
+    if (currentUser && isUserEditingRef.current && hasReceivedInitialSnapshotRef.current) {
+      console.log('[Logout] 로그아웃 직전 미저장 변경사항을 Firestore에 즉시 저장합니다...');
+      const targetDocId = currentUser.uid || activeDocId;
+      if (targetDocId) {
+        try {
+          const payloadObj = {
+            userProfile,
+            items,
+            yearlyItems,
+            longTermPlanner,
+            categories,
+            dailyEvents,
+          };
+          await saveUserDataToFirestore(
+            targetDocId,
+            currentUserPhone || '',
+            payloadObj,
+            {
+              reason: 'manual-user-sync',
+              isUserEditing: true,
+              hasReceivedInitialSnapshot: true,
+            }
+          );
+          console.log('[Logout] 로그아웃 직전 저장 완료!');
+        } catch (e) {
+          console.error('[Logout] 로그아웃 직전 저장 실패:', e);
+        }
+      }
+    }
+
     isRemoteUpdatingRef.current = true;
     isSnapshotReadyRef.current = false;
     hasReceivedInitialSnapshotRef.current = false;
     setIsFirestoreLoaded(false);
+    isUserEditingRef.current = false;
 
     // Clear all LocalStorage keys completely
     localStorage.removeItem('plannerData');
@@ -360,10 +392,6 @@ export default function App() {
     hasReceivedInitialSnapshotRef.current = false;
 
     const unsubscribeDoc = subscribeToUserPlanner(currentDocId, (data, exists) => {
-      // Invalidate any in-flight or scheduled auto-save request by incrementing request ID version
-      saveRequestIdRef.current += 1;
-      isUserEditingRef.current = false;
-
       // 1. Check local storage cache or current state for conflict resolution
       let localCache: any = null;
       try {
@@ -453,7 +481,18 @@ export default function App() {
         return;
       }
 
-      // 3. Remote Update Active: Cancel any pending local auto-save timer immediately
+      // 3. User Editing Guard: If user is actively editing locally, do not overwrite local state with remote snapshot
+      if (isUserEditingRef.current) {
+        console.log("[Sync Resolution] 사용자가 로컬에서 편집 중이므로 수신된 원격 데이터로 덮어쓰지 않습니다.");
+        isSnapshotReadyRef.current = true;
+        hasReceivedInitialSnapshotRef.current = true;
+        setIsFirestoreLoaded(true);
+        setIsDataLoading(false);
+        return;
+      }
+
+      // 4. Remote Update Active: Cancel any pending local auto-save timer immediately & invalidate save request ID
+      saveRequestIdRef.current += 1;
       if (pendingSaveTimerRef.current) {
         console.log('[Sync Resolution] 원격 스냅샷 수신 -> 대기 중인 로컬 자동 저장 타이머를 즉시 취소합니다.');
         clearTimeout(pendingSaveTimerRef.current);
