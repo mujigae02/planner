@@ -6,7 +6,7 @@ import {
   browserLocalPersistence,
   User,
 } from 'firebase/auth';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 import { ScheduleItem, UserProfile, DailyEvents, YearlyScheduleItem, LongTermPlannerData, CategoryItem } from '../types';
 
@@ -56,26 +56,32 @@ export async function loginWithGoogleSocial(initialData?: {
   localStorage.setItem('lux_active_phone_docId', docId);
   localStorage.setItem('lux_active_phone', accountName);
 
-  if (initialData) {
-    const rawPlannerData = {
-      userId: user.uid,
-      phoneNumber: accountName,
-      userProfile: {
-        ...initialData.userProfile,
-        name: userInfo.name,
-        avatarUrl: userInfo.avatarUrl || initialData.userProfile?.avatarUrl || '',
-      },
-      items: initialData.items || [],
-      categories: initialData.categories || [],
-      colorMap: initialData.colorMap || {},
-      dailyEvents: initialData.dailyEvents || {},
-      updatedAt: new Date().toISOString(),
-    };
-    const sanitized = JSON.parse(JSON.stringify(rawPlannerData));
-    setDoc(doc(db, 'userPlanners', docId), sanitized, { merge: true }).catch((err) =>
-      console.warn('Background setDoc notice:', err)
-    );
-  }
+ const userDocRef = doc(db, 'userPlanners', docId);
+const userDocSnap = await getDoc(userDocRef);
+
+if (!userDocSnap.exists() && initialData) {
+  const rawPlannerData = {
+    userId: user.uid,
+    phoneNumber: accountName,
+    userProfile: {
+      ...initialData.userProfile,
+      name: userInfo.name,
+      avatarUrl: userInfo.avatarUrl || initialData.userProfile?.avatarUrl || '',
+    },
+    items: initialData.items || [],
+    categories: initialData.categories || [],
+    colorMap: initialData.colorMap || {},
+    dailyEvents: initialData.dailyEvents || {},
+    updatedAt: new Date().toISOString(),
+  };
+
+  const sanitized = JSON.parse(JSON.stringify(rawPlannerData));
+
+  await setDoc(userDocRef, sanitized);
+  console.log('[Firestore] 신규 사용자 초기 데이터 생성 완료');
+} else if (userDocSnap.exists()) {
+  console.log('[Firestore] 기존 사용자 데이터 발견 - 초기 데이터 덮어쓰기 방지');
+}
 
   return { user, docId, accountName, userInfo };
 }
