@@ -174,6 +174,17 @@ export default function App() {
   // Auth Listener & Realtime Firestore Sync with Persistent Session Restoration
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // Safely reset session refs whenever auth user changes
+      saveRequestIdRef.current += 1;
+      if (pendingSaveTimerRef.current) {
+        clearTimeout(pendingSaveTimerRef.current);
+        pendingSaveTimerRef.current = null;
+      }
+      isUserEditingRef.current = false;
+      isRemoteUpdatingRef.current = false;
+      hasReceivedInitialSnapshotRef.current = false;
+      isSnapshotReadyRef.current = false;
+
       setCurrentUser(user);
       if (user) {
         console.log("현재 연동된 유저 UID:", user.uid);
@@ -199,7 +210,6 @@ export default function App() {
         setActiveDocId('');
         setIsDataLoading(false);
         setIsFirestoreLoaded(false);
-        isSnapshotReadyRef.current = false;
 
         // Clear local storage cache completely on logout
         localStorage.removeItem('plannerData');
@@ -481,9 +491,10 @@ export default function App() {
         return;
       }
 
-      // 3. User Editing Guard: If user is actively editing locally, do not overwrite local state with remote snapshot
-      if (isUserEditingRef.current) {
-        console.log("[Sync Resolution] 사용자가 로컬에서 편집 중이므로 수신된 원격 데이터로 덮어쓰지 않습니다.");
+      // 3. User Editing Guard: During initial snapshot, ALWAYS apply remote data. For subsequent snapshots, skip if user is actively editing.
+      const isInitialSnapshot = !hasReceivedInitialSnapshotRef.current;
+      if (!isInitialSnapshot && isUserEditingRef.current) {
+        console.log("[Sync Resolution] 사용자가 로컬에서 편집 중이므로 수신된 실시간 원격 데이터로 덮어쓰지 않습니다.");
         isSnapshotReadyRef.current = true;
         hasReceivedInitialSnapshotRef.current = true;
         setIsFirestoreLoaded(true);
@@ -499,8 +510,9 @@ export default function App() {
         pendingSaveTimerRef.current = null;
       }
 
-      console.log("[Sync Resolution] Firestore 원격 데이터 적용. 불러온 items 개수:", remoteItems.length);
+      console.log(`[Sync Resolution] Firestore 원격 데이터 적용 (초기: ${isInitialSnapshot}, items: ${remoteItems.length}개)`);
       isRemoteUpdatingRef.current = true;
+      isUserEditingRef.current = false;
       lastSavedPayloadRef.current = incomingPayload;
 
       if (data.phoneNumber) {
