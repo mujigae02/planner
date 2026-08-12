@@ -255,9 +255,9 @@ export default function App() {
 
   const handleLogout = async () => {
     // Save any pending local user edits to Firestore BEFORE logging out
-   if (currentUser && hasReceivedInitialSnapshotRef.current) {
+   if (auth.currentUser && hasReceivedInitialSnapshotRef.current) {
       console.log('[Logout] 로그아웃 직전 미저장 변경사항을 Firestore에 즉시 저장합니다...');
-      const targetDocId = currentUser.uid || activeDocId;
+     const targetDocId = auth.currentUser?.uid || activeDocId;
       if (targetDocId) {
         try {
           const payloadObj = {
