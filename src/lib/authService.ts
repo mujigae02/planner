@@ -262,7 +262,17 @@ export function subscribeToUserPlanner(
 
 // Real Firebase Logout
 export async function logoutUser() {
-await signOut(auth).catch(() => {});
+  localStorage.removeItem('plannerData');
+  localStorage.removeItem('lux_active_phone_docId');
+  localStorage.removeItem('lux_active_phone');
+  localStorage.removeItem('lux_life_planner_profile_v2');
+  localStorage.removeItem('lux_life_planner_items_v2');
+  localStorage.removeItem('lux_life_planner_yearly_items_v2');
+  localStorage.removeItem('lux_life_planner_long_term_v2');
+  localStorage.removeItem('lux_life_planner_categories_v2');
+  localStorage.removeItem('lux_life_planner_color_map_v2');
+  localStorage.removeItem('lux_life_planner_daily_events_v2');
+  await signOut(auth).catch(() => {});
 }
 
 export { onAuthStateChanged };
