@@ -2,8 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /userPlanners/{docId} {
-      allow read, write: if true;
+      // docId는 앱 코드에서 항상 Firebase Auth의 user.uid로 설정됩니다.
+      // 로그인한 본인의 UID와 문서 ID가 일치할 때만 읽기/쓰기를 허용합니다.
+      allow read, write: if request.auth != null && request.auth.uid == docId;
     }
   }
 }
-
