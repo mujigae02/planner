@@ -37,8 +37,8 @@
   },
   "securityRules": {
     "userPlanners": {
-      "read": "true",
-      "write": "true"
+      "read": "request.auth != null && request.auth.uid == docId",
+      "write": "request.auth != null && request.auth.uid == docId"
     }
   }
 }
