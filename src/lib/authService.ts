@@ -56,26 +56,12 @@ export async function loginWithGoogleSocial(initialData?: {
   localStorage.setItem('lux_active_phone_docId', docId);
   localStorage.setItem('lux_active_phone', accountName);
 
-  if (initialData) {
-    const rawPlannerData = {
-      userId: user.uid,
-      phoneNumber: accountName,
-      userProfile: {
-        ...initialData.userProfile,
-        name: userInfo.name,
-        avatarUrl: userInfo.avatarUrl || initialData.userProfile?.avatarUrl || '',
-      },
-      items: initialData.items || [],
-      categories: initialData.categories || [],
-      colorMap: initialData.colorMap || {},
-      dailyEvents: initialData.dailyEvents || {},
-      updatedAt: new Date().toISOString(),
-    };
-    const sanitized = JSON.parse(JSON.stringify(rawPlannerData));
-    setDoc(doc(db, 'userPlanners', docId), sanitized, { merge: true }).catch((err) =>
-      console.warn('Background setDoc notice:', err)
-    );
-  }
+  // 중요: 여기서 initialData(로그인 "직전"의 로컬 상태, 보통 빈 값)를 Firestore에
+  // 곧바로 setDoc 하지 않습니다. 과거에는 이 로직이 로그인할 때마다 서버에 저장된
+  // 기존 일정을 로그인 전 상태(주로 빈 배열)로 덮어써서 "로그아웃 후 재로그인하면
+  // 일정이 사라지는" 버그의 직접적인 원인이었습니다.
+  // 신규 사용자의 초기 데이터 업로드는 App.tsx의 Firestore 구독 로직에서
+  // "서버에 문서가 존재하지 않을 때만" 안전하게 처리하도록 위임합니다.
 
   return { user, docId, accountName, userInfo };
 }
@@ -270,6 +256,3 @@ export async function logoutUser() {
 }
 
 export { onAuthStateChanged };
-
-
-
