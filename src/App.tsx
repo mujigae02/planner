@@ -278,6 +278,15 @@ export default function App() {
           console.log('[Logout] 로그아웃 직전 저장 완료!');
         } catch (e) {
           console.error('[Logout] 로그아웃 직전 저장 실패:', e);
+          const forceLogout = window.confirm(
+            '변경된 일정을 클라우드에 저장하지 못했습니다.\n' +
+            '이대로 로그아웃하면 방금 입력한 내용이 사라질 수 있습니다.\n\n' +
+            '그래도 로그아웃하시겠습니까? (취소를 누르면 로그아웃을 중단하고 다시 저장을 시도할 수 있습니다)'
+          );
+          if (!forceLogout) {
+            showToast('⚠️ 저장 실패로 로그아웃이 취소되었습니다. 잠시 후 다시 시도해주세요.');
+            return;
+          }
         }
       }
     }
