@@ -1,11 +1,12 @@
 import React from 'react';
-import { User, RefreshCw, LogOut, Cloud } from 'lucide-react';
+import { User, RefreshCw, LogOut, Cloud, AlertTriangle } from 'lucide-react';
 
 interface UserAccountBarProps {
   currentUserPhone: string | null; // Account email or name
   currentUserAvatar?: string;
   isSyncing: boolean;
   lastSyncedAt: string | null;
+  syncError?: string | null;
   onOpenAuthModal: () => void;
   onLogout: () => void;
   onManualSync?: () => void;
@@ -16,6 +17,7 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
   currentUserAvatar,
   isSyncing,
   lastSyncedAt,
+  syncError,
   onOpenAuthModal,
   onLogout,
   onManualSync,
@@ -46,6 +48,16 @@ export const UserAccountBar: React.FC<UserAccountBarProps> = ({
                     <RefreshCw className="w-3 h-3 text-[#2D2926] animate-spin" />
                     <span className="font-medium text-[#2D2926]">실시간 동기화 중...</span>
                   </div>
+                ) : syncError ? (
+                  <button
+                    type="button"
+                    onClick={onManualSync}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-300 hover:bg-red-100 text-red-600 font-semibold rounded-full transition-all shadow-2xs cursor-pointer active:scale-95"
+                    title={syncError}
+                  >
+                    <AlertTriangle className="w-3 h-3 text-red-600" />
+                    <span>동기화 실패 (클릭하여 재시도)</span>
+                  </button>
                 ) : (
                   <button
                     type="button"
