@@ -30,6 +30,24 @@ const STORAGE_KEYS = {
   DAILY_EVENTS: 'lux_life_planner_daily_events_v2',
 };
 
+function describeFirestoreError(error: unknown): string {
+  const code = (error as any)?.code || '';
+  const message = error instanceof Error ? error.message : String(error);
+  if (code.includes('permission-denied')) {
+    return '클라우드 접근 권한이 거부되었습니다 (permission-denied). Firebase 콘솔의 Firestore 보안 규칙이 배포되어 있는지, 그리고 사용 중인 Firestore 데이터베이스 ID가 맞는지 확인해주세요.';
+  }
+  if (code.includes('unavailable') || code.includes('network')) {
+    return '클라우드 서버에 연결할 수 없습니다 (네트워크 문제). 인터넷 연결을 확인해주세요.';
+  }
+  if (code.includes('not-found')) {
+    return 'Firestore 데이터베이스를 찾을 수 없습니다. firebase-applet-config.json의 데이터베이스 설정을 확인해주세요.';
+  }
+  if (code.includes('unauthenticated')) {
+    return '로그인 세션이 만료되었습니다. 다시 로그인해주세요.';
+  }
+  return `클라우드 동기화 중 오류가 발생했습니다: ${message}`;
+}
+
 function getPlannerDataCache(): any {
   try {
     const raw = localStorage.getItem('plannerData');
@@ -163,6 +181,9 @@ export default function App() {
 
   // 상단 알림 메시지 토스트 state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Firestore 저장/구독 오류 상태 (사용자에게 실패를 명확히 보여주기 위함)
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -456,6 +477,8 @@ export default function App() {
           })
           .catch((err) => {
             console.error('[Sync] Firestore 로컬 데이터 동기화 업로드 실패:', err);
+            setSyncError(describeFirestoreError(err));
+            showToast('❌ 최초 클라우드 업로드에 실패했습니다. 상단 오류 안내를 확인해주세요.');
             isSnapshotReadyRef.current = true;
             hasReceivedInitialSnapshotRef.current = true;
             setIsFirestoreLoaded(true);
@@ -566,10 +589,24 @@ export default function App() {
       setIsFirestoreLoaded(true);
       setIsDataLoading(false);
 
+      setSyncError(null);
+
       // Release remote updating flag on next tick after React state flush
       setTimeout(() => {
         isRemoteUpdatingRef.current = false;
       }, 0);
+    }, (error) => {
+      // 구독 자체가 실패한 경우(권한 오류, 잘못된 DB 등): 무한 로딩에 빠지지 않도록
+      // 로딩 상태를 즉시 해제하고, 사용자가 볼 수 있는 오류 메시지를 남깁니다.
+      // 이 상태에서도 기존에 기기에 저장된 로컬 데이터로 계속 작업할 수 있습니다.
+      const friendlyMessage = describeFirestoreError(error);
+      console.error('[Sync] Firestore 구독 실패:', friendlyMessage, error);
+      setSyncError(friendlyMessage);
+      showToast('❌ 클라우드 동기화 연결에 실패했습니다. 상단의 오류 안내를 확인해주세요.');
+      isSnapshotReadyRef.current = true;
+      hasReceivedInitialSnapshotRef.current = true;
+      setIsFirestoreLoaded(true);
+      setIsDataLoading(false);
     });
 
     return () => {
@@ -682,12 +719,19 @@ export default function App() {
           lastSavedPayloadRef.current = currentPayload;
           isUserEditingRef.current = false; // Reset user edit flag after successful save
           setLastSyncedAt(new Date().toLocaleTimeString());
+          setSyncError(null);
           console.log(`[Sync AutoSave Success] ✅ [실제 사용자 변경] Firestore 저장 성공! (Request ID: ${thisSaveRequestId}, items: ${items.length}개)`);
         } else {
           console.log(`[Sync AutoSave Notice] ⚠️ 저장 완료 후 요청 ID가 변경되어 상태 업데이트를 무효화합니다 (Req ID: ${thisSaveRequestId}, Current ID: ${saveRequestIdRef.current})`);
         }
       } catch (err) {
+        // 중요: 이전에는 자동 저장 실패 시 콘솔에만 기록되고 화면에는 계속 "동기화 완료"로 표시되어,
+        // 사용자가 저장이 안 되고 있다는 사실을 전혀 알 수 없었습니다.
+        // isUserEditingRef를 false로 되돌리지 않아, 다음 편집 시(또는 재시도 버튼으로) 다시 저장을 시도합니다.
         console.error('[Sync AutoSave Error] Firestore 자동 저장 중 실패:', err);
+        const friendlyMessage = describeFirestoreError(err);
+        setSyncError(friendlyMessage);
+        showToast('❌ 자동 저장에 실패했습니다. 상단의 동기화 오류 안내를 확인해주세요.');
       } finally {
         setIsSyncing(false);
         pendingSaveTimerRef.current = null;
@@ -1203,9 +1247,12 @@ export default function App() {
         { reason: 'manual-user-sync', isUserEditing: true, hasReceivedInitialSnapshot: true }
       );
       setLastSyncedAt(new Date().toLocaleTimeString());
+      setSyncError(null);
       showToast('☁️ 클라우드 동기화가 즉시 완료되었습니다.');
     } catch (e) {
       console.error('Manual sync failed:', e);
+      const friendlyMessage = describeFirestoreError(e);
+      setSyncError(friendlyMessage);
       showToast('❌ 클라우드 동기화에 실패했습니다.');
     } finally {
       setIsSyncing(false);
@@ -1230,6 +1277,8 @@ export default function App() {
     );
   }
 
+
+
   return (
     <div className="min-h-screen bg-[#F8F7F4] font-sans-kr text-[#2D2926]">
       {/* 전화번호 로그인 & 실시간 동기화 상태 바 */}
@@ -1238,6 +1287,7 @@ export default function App() {
         currentUserAvatar={userProfile?.avatarUrl}
         isSyncing={isSyncing}
         lastSyncedAt={lastSyncedAt}
+        syncError={syncError}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         onManualSync={handleManualSync}
@@ -1255,6 +1305,36 @@ export default function App() {
           viewMode={viewMode}
           onViewModeChange={setViewMode}
         />
+
+        {/* 동기화 오류 배너 (닫기 전까지 계속 표시되어, 저장 실패를 놓치지 않도록 함) */}
+        {syncError && (
+          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 flex items-start justify-between gap-3">
+            <span className="leading-relaxed">⚠️ {syncError}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleManualSync}
+                className="px-3 py-1 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700"
+              >
+                재시도
+              </button>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="px-3 py-1 rounded-full border border-red-300 text-red-600 font-semibold hover:bg-red-100"
+              >
+                새로고침
+              </button>
+              <button
+                type="button"
+                onClick={() => setSyncError(null)}
+                className="px-2 py-1 rounded-full border border-red-200 text-red-500 hover:bg-red-100"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 토스트 메세지 배너 */}
         {toastMessage && (
