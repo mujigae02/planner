@@ -208,7 +208,8 @@ export async function saveUserDataToFirestore(
 // Subscribe to real-time updates for logged-in user
 export function subscribeToUserPlanner(
   docId: string,
-  onData: (data: UserPlannerData, exists: boolean) => void
+  onData: (data: UserPlannerData, exists: boolean) => void,
+  onError?: (error: unknown) => void
 ) {
   const targetUid = docId || auth.currentUser?.uid;
   if (!targetUid) return () => {};
@@ -230,12 +231,17 @@ export function subscribeToUserPlanner(
         }
       },
       (error) => {
+        // 중요: 이전에는 이 에러가 콘솔에만 기록되고 App 쪽으로 전달되지 않아,
+        // 구독이 실패해도 앱이 "동기화 중..." 로딩 화면에서 영원히 멈춰있는 원인이었습니다.
+        // (권한 부족, 잘못된 Firestore 데이터베이스 ID, 네트워크 차단 등)
         console.error('Firestore 동기화 실패:', error);
         handleFirestoreError(error, OperationType.GET, path);
+        if (onError) onError(error);
       }
     );
   } catch (err) {
     console.error('[Firestore] 구독 설정 중 예외 발생:', err);
+    if (onError) onError(err);
     return () => {};
   }
 }
